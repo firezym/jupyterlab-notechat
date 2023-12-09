@@ -1,6 +1,5 @@
 # jupyterlab-notechat
 
-[![Github Actions Status](https://github.com/firezym/jupyterlab-notechat/workflows/Build/badge.svg)](https://github.com/firezym/jupyterlab-notechat/actions/workflows/build.yml)
 Chat with an AI Assistant in the Notebook using OpenAI API
 
 This extension is composed of a Python package named `jupyterlab-notechat`
