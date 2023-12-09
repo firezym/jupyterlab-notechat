@@ -55,7 +55,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: extension-artifacts
-        path: dist/jupyterlab-notechat*
+        path: dist/jupyterlab_notechat*
         if-no-files-found: error
 
   test_isolated:
