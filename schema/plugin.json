@@ -1,0 +1,8 @@
+{
+  "jupyter.lab.shortcuts": [],
+  "title": "jupyterlab-notechat",
+  "description": "jupyterlab-notechat settings.",
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}

@@ -1,0 +1,20 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v4.2.4
+_src_path: https://github.com/jupyterlab/extension-template
+author_email: firezym@gmail.com
+author_name: ocean
+data_format: string
+file_extension: ''
+has_binder: false
+has_settings: true
+kind: server
+labextension_name: jupyterlab-notechat
+mimetype: ''
+mimetype_name: ''
+project_short_description: Chat with an AI Assistant in the Notebook using OpenAI
+    API
+python_name: jupyterlab-notechat
+repository: https://github.com/firezym/jupyterlab-notechat
+test: true
+viewer_name: ''
+
