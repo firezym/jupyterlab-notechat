@@ -60,7 +60,6 @@
         "@jupyterlab/coreutils": "^6.0.9",
         "@jupyterlab/services": "^7.0.9",
         "@jupyterlab/settingregistry": "^4.0.9",
-        "httpx": "^0.25.2"
     },
     "devDependencies": {
         "@jupyterlab/builder": "^4.0.0",
