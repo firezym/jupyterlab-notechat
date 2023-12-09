@@ -125,3 +125,5 @@ dmypy.json
 .yarn/
 
 yarn.lock
+
+junit.xml
