@@ -18,6 +18,7 @@ import {
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat';
 import { ServerConnection } from '@jupyterlab/services';
 import { IDisposable } from '@lumino/disposable';
+import { mermaidIcon } from '@jupyterlab/ui-components'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
@@ -79,6 +80,7 @@ class ChatButtonExtension
   ): IDisposable {
     const chatButton = new ToolbarButton({
       label: 'Chat',
+      icon: mermaidIcon, //shareIcon
       // onClick: () => this.sendActiveCellData(panel)
       // onClick: () => this.sendContextCellData(panel)
       // onClick: () => this.getOrganizedCellContext(panel)
