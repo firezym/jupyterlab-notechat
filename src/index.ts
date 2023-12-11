@@ -18,7 +18,7 @@ import {
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat';
 import { ServerConnection } from '@jupyterlab/services';
 import { IDisposable } from '@lumino/disposable';
-import { mermaidIcon } from '@jupyterlab/ui-components'
+import { reactIcon } from '@jupyterlab/ui-components'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
@@ -67,29 +67,49 @@ const plugin: JupyterFrontEndPlugin<void> = {
   }
 };
 
+
+class RotatingToolbarButton extends ToolbarButton {
+
+  constructor(...args: any[]) {
+      super(...args);
+  }
+
+  startRotation() {
+    const iconElement = this.node.querySelector('[class*="icon"]');
+    if (iconElement) {
+      iconElement.classList.add('rotate');
+    }
+  }
+
+  stopRotation() {
+    const iconElement = this.node.querySelector('[class*="icon"]');
+    if (iconElement) {
+      iconElement.classList.remove('rotate');
+    }
+  }
+}
+
+
 class ChatButtonExtension
   implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel>
 {
   private settings: ISettingRegistry.ISettings;
+  private chatButton: RotatingToolbarButton | null;
   constructor(settings: ISettingRegistry.ISettings) {
     this.settings = settings;
+    this.chatButton = null; // 初始化为 null 或 undefined
   }
   createNew(
     panel: NotebookPanel,
     context: DocumentRegistry.IContext<INotebookModel>
   ): IDisposable {
-    const chatButton = new ToolbarButton({
+    this.chatButton = new RotatingToolbarButton({
       label: 'Chat',
-      icon: mermaidIcon, //shareIcon
-      // onClick: () => this.sendActiveCellData(panel)
-      // onClick: () => this.sendContextCellData(panel)
-      // onClick: () => this.getOrganizedCellContext(panel)
+      icon: reactIcon, //shareIcon paletteIcon reactIcon launcherIcon consoleIcon
       onClick: () => this.chatCellData(panel)
     });
-    panel.toolbar.insertItem(11, 'chatButton', chatButton);
-    // panel.toolbar.addItem('chatButton', chatButton);
-    // panel.toolbar.insertAfter('mybutton', 'chatButton', chatButton);
-    return chatButton;
+    panel.toolbar.insertItem(11, 'chatButton', this.chatButton);
+    return this.chatButton;
   }
 
   async getOrganizedCellContext(panel: NotebookPanel): Promise<string> {
@@ -186,6 +206,7 @@ class ChatButtonExtension
   // 修改后的 chatCellData 函数
   async chatCellData(panel: NotebookPanel): Promise<void> {
     try {
+      this.chatButton?.startRotation();
       // 调用 getOrganizedCellContext 获取单元格上下文
       const cellContext = await this.getOrganizedCellContext(panel);
 
@@ -240,6 +261,7 @@ class ChatButtonExtension
     } catch (error) {
       console.error('Error in chatCellData:', error);
     }
+    this.chatButton?.stopRotation();
   }
 
   // 新增函数：在当前选中的单元格下方插入一个新的单元格
