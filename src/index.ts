@@ -26,7 +26,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlab-notechat:plugin',
   description: 'Chat with an AI Assistant in the Notebook using OpenAI API',
   autoStart: true,
-  optional: [ISettingRegistry],
+  requires: [ISettingRegistry],
   activate: (
     app: JupyterFrontEnd,
     settingRegistry: ISettingRegistry | null
@@ -43,7 +43,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           );
           app.docRegistry.addWidgetExtension(
             'Notebook',
-            new ChatButtonExtension()
+            new ChatButtonExtension(settings)
           );
         })
         .catch(reason => {
@@ -69,6 +69,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
 class ChatButtonExtension
   implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel>
 {
+  private settings: ISettingRegistry.ISettings;
+  constructor(settings: ISettingRegistry.ISettings) {
+    this.settings = settings;
+  }
   createNew(
     panel: NotebookPanel,
     context: DocumentRegistry.IContext<INotebookModel>
@@ -188,8 +192,7 @@ class ChatButtonExtension
         messages: [
           {
             role: 'system',
-            content:
-              "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source code and output of the currently active cell, along with the content of several preceding cells, as context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary or more helpful for understanding, or instructed to do so."
+            content: this.settings.get('prompt').composite as string
           },
           {
             role: 'user',
