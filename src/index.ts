@@ -5,31 +5,34 @@ import {
 
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
-import { requestAPI } from './handler';
-
-import { ToolbarButton } from '@jupyterlab/apputils';
+import { ICommandPalette, ToolbarButton } from '@jupyterlab/apputils';
 import { URLExt } from '@jupyterlab/coreutils';
-import { DocumentRegistry } from '@jupyterlab/docregistry';
 import {
+  INotebookTracker,
   NotebookPanel,
-  INotebookModel,
   NotebookActions
 } from '@jupyterlab/notebook';
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat';
 import { ServerConnection } from '@jupyterlab/services';
-import { IDisposable } from '@lumino/disposable';
 import { reactIcon } from '@jupyterlab/ui-components'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
  */
+
+const DEFAULT_PROMPT = "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so.";
+const PLUGIN_ID = 'jupyterlab-notechat:plugin';
+
+
 const plugin: JupyterFrontEndPlugin<void> = {
-  id: 'jupyterlab-notechat:plugin',
+  id: PLUGIN_ID,
   description: 'Chat with an AI Assistant in the Notebook using OpenAI API',
   autoStart: true,
-  requires: [ISettingRegistry],
+  requires: [ICommandPalette, INotebookTracker, ISettingRegistry],
   activate: (
     app: JupyterFrontEnd,
+    palette: ICommandPalette,
+    notebookTracker: INotebookTracker,
     settingRegistry: ISettingRegistry | null
   ) => {
     console.log('JupyterLab extension jupyterlab-notechat is activated!');
@@ -38,14 +41,60 @@ const plugin: JupyterFrontEndPlugin<void> = {
       settingRegistry
         .load(plugin.id)
         .then(settings => {
-          console.log(
-            'jupyterlab-notechat settings loaded:',
-            settings.composite
-          );
-          app.docRegistry.addWidgetExtension(
-            'Notebook',
-            new ChatButtonExtension(settings)
-          );
+          console.log('jupyterlab-notechat settings loaded:', settings.composite);
+
+          // Add an application command
+          const command: string = 'jupyterlab-notechat:chat-cell-data';
+          app.commands.addCommand(command, {
+            label: 'Chat with AI Assistant',
+            icon: reactIcon,
+            execute: () => {
+              const currentPanel = notebookTracker.currentWidget;
+              if (!currentPanel) {
+                return;
+              }
+              console.log('Command Triggered ChatCellData: settings:', settings.composite);
+              return chatCellData(currentPanel, settings);
+            }
+          });
+          // Add command to the palette
+          palette.addItem({ command, category: 'notechat' });
+          // Add hotkeys: Alt + C
+          app.commands.addKeyBinding({
+            command,
+            keys: [`Alt C`],
+            selector: '.jp-Notebook'
+          })
+
+          // Add a toolbar button
+          notebookTracker.widgetAdded.connect((tracker, panel) => {
+            let button: RotatingToolbarButton | undefined;
+            const toolbar = panel.toolbar;
+            if (button) {
+              console.log('notechat: chatbutton already on toolbar')
+              return
+            }
+            console.log('notechat: adding chatbutton')
+            button = new RotatingToolbarButton(
+              panel,
+              settings,
+              {
+                label: 'ChatAI',
+                icon: reactIcon,
+              }
+            )
+            toolbar.insertItem(11, 'chatButton', button)
+            // console.log('notechat: metadata state before: ', panel.model?.getMetadata('is_chatting'))
+            // panel.model?.setMetadata('is_chatting', false)
+            // tracker.currentWidget?.model?.setMetadata('is_chatting', false) //也不行
+            // console.log('notechat: metadata state after: ', panel.model?.getMetadata('is_chatting'))
+            /** 显示并不一致，不知道为什么panel.model中的metadata的is_chatting没有更新，
+             * 但是panel.model?.metadata却是更新过的状态，而在chatCellData函数中操作后，
+             * model又是可以正常更新的，感觉可能还是加载顺序的问题，*/
+            // console.log('notechat: model', panel.model?.metadata)
+            // console.log('notechat: model', panel.model)
+          })
+
         })
         .catch(reason => {
           console.error(
@@ -55,26 +104,46 @@ const plugin: JupyterFrontEndPlugin<void> = {
         });
     }
 
-    requestAPI<any>('get-example')
-      .then(data => {
-        console.log(data);
-      })
-      .catch(reason => {
-        console.error(
-          `The jupyterlab-notechat server extension appears to be missing.\n${reason}`
-        );
-      });
   }
 };
 
 
 class RotatingToolbarButton extends ToolbarButton {
 
-  constructor(...args: any[]) {
+  public readonly creationTimestamp: number;
+  private panel: NotebookPanel | null;
+  private settings: ISettingRegistry.ISettings | null;
+
+  constructor(
+    panel: NotebookPanel, 
+    settings: ISettingRegistry.ISettings,
+    ...args: any[]) {
       super(...args);
+      this.creationTimestamp = Date.now();
+      this.panel = panel;
+      this.settings = settings;
+      this.node.addEventListener('click', this.handleClick);
+  }
+
+  handleClick = () => {
+    console.log('RotatingToolbarButton onClick Event, Creation ID:', this.creationTimestamp);
+    
+    // 如果AI正忙，则弹框提示
+    if (this.panel?.model?.getMetadata('is_chatting')) {
+      showCustomNotification('Please wait a moment, the AI Assistant is responding...', this.panel);
+      return;
+    }
+
+    // 开始和AI对话
+    this.startRotation();
+    chatCellData(this.panel, this.settings).then(() => {
+      this.stopRotation();
+    });
+
   }
 
   startRotation() {
+    console.log('Inner Chat Button Start Rotation:', this.creationTimestamp);
     const iconElement = this.node.querySelector('[class*="icon"]');
     if (iconElement) {
       iconElement.classList.add('rotate');
@@ -82,6 +151,7 @@ class RotatingToolbarButton extends ToolbarButton {
   }
 
   stopRotation() {
+    console.log('Inner Chat Button Stop Rotation:', this.creationTimestamp);
     const iconElement = this.node.querySelector('[class*="icon"]');
     if (iconElement) {
       iconElement.classList.remove('rotate');
@@ -90,151 +160,197 @@ class RotatingToolbarButton extends ToolbarButton {
 }
 
 
-class ChatButtonExtension
-  implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel>
-{
-  private settings: ISettingRegistry.ISettings;
-  private chatButton: RotatingToolbarButton | null;
-  constructor(settings: ISettingRegistry.ISettings) {
-    this.settings = settings;
-    this.chatButton = null; // 初始化为 null 或 undefined
-  }
-  createNew(
-    panel: NotebookPanel,
-    context: DocumentRegistry.IContext<INotebookModel>
-  ): IDisposable {
-    this.chatButton = new RotatingToolbarButton({
-      label: 'Chat',
-      icon: reactIcon, //shareIcon paletteIcon reactIcon launcherIcon consoleIcon
-      onClick: () => this.chatCellData(panel)
-    });
-    panel.toolbar.insertItem(11, 'chatButton', this.chatButton);
-    return this.chatButton;
-  }
+const chatCellData = async (
+  panel: NotebookPanel | null,
+  userSettings: ISettingRegistry.ISettings | null
+  ): Promise<void> => {
 
-  async getOrganizedCellContext(panel: NotebookPanel): Promise<string> {
-    // const turndownService = new TurndownService();
-    let combinedOutput = '';
-    const activeCellIndex = panel.content.activeCellIndex;
-    const startIndex = Math.max(0, activeCellIndex - 2);
-
-    // 遍历每个单元格
-    for (let i = startIndex; i <= activeCellIndex; i++) {
-      // 单元格模型
-      const cellModel = panel.content.widgets[i].model.toJSON();
-
-      // 添加单元格头
-      combinedOutput += `##########\nCell: ${i}`;
-      if (i === activeCellIndex) {
-        combinedOutput += ' (Current Active Cell)';
-      }
-      combinedOutput += '\n##########\n\n';
-
-      // 单元格Input文本
-      const cellSourceText = cellModel.source?.toString() ?? '';
-
-      // 处理Markdown类型的单元格
-      if (cellModel.cell_type === 'markdown') {
-        combinedOutput += `Markdown:\n----------\n${cellSourceText.trim()}\n----------\n\n`;
-      }
-
-      // 处理Raw类型的单元格
-      if (cellModel.cell_type === 'raw') {
-        combinedOutput += `Raw:\n----------\n${cellSourceText.trim()}\n----------\n\n`;
-      }
-
-      // 处理Code类型的单元格
-      if (cellModel.cell_type === 'code') {
-        combinedOutput += `Code:\n\`\`\`python\n${cellSourceText.trim()}\n\`\`\`\n\n`;
-
-        // 处理输出
-        const cellOutputs = cellModel.outputs; // 获取单元格的outputs
-        if (Array.isArray(cellOutputs) && cellOutputs.length > 0) {
-          combinedOutput += 'Outputs:\n----------\n';
-
-          for (const output of cellOutputs) {
-            const typedOutput = output as IOutput; // 使用类型断言
-            switch (typedOutput.output_type) {
-              case 'stream':
-                {
-                  combinedOutput += `${
-                    typedOutput.text?.toString().trim() ?? ''
-                  }\n----------\n`;
-                }
-                break;
-              case 'execute_result':
-                {
-                  const typedOutputData =
-                    typedOutput.data as IExecuteResult['data'];
-
-                  if (typedOutputData['text/html']) {
-                    // combinedOutput += `${turndownService.turndown(typedOutputData['text/html']?.toString() ?? '')}\n`;
-                    // combinedOutput += `${this.htmlTableToMarkdown(typedOutputData['text/html']?.toString().trim() ?? '')}\n----------\n`;
-                    combinedOutput += `${
-                      typedOutputData['text/html']?.toString().trim() ?? ''
-                    }\n----------\n`;
-                  } else {
-                    combinedOutput += `${
-                      typedOutputData['text/plain']?.toString().trim() ?? ''
-                    }\n----------\n`;
-                  }
-                }
-                break;
-              case 'error':
-                {
-                  const cellErrorText = typedOutput.traceback?.toString() ?? '';
-                  combinedOutput += `Error: ${
-                    typedOutput.ename
-                  } --- Error Value: ${
-                    typedOutput.evalue
-                  }\n${this.removeANSISequences(cellErrorText)}\n----------\n`;
-                }
-                break;
-              // display_data 跳过
-            }
-          }
-          combinedOutput += '\n';
-        }
-      }
-      combinedOutput += '\n';
+    console.log('Start ChatCellData Function, metadata is_chatting: ', panel?.model?.getMetadata('is_chatting'));
+    
+    // 如果AI正忙，则弹框提示
+    if (panel?.model?.getMetadata('is_chatting')) {
+      showCustomNotification('Please wait a moment, the AI Assistant is responding...', panel);
+      return;
     }
 
-    console.log(combinedOutput);
-    return combinedOutput;
+    // 设置is_chatting状态，防止用户重复点击或重复执行命令
+    panel?.model?.setMetadata('is_chatting', true);
+
+    if (!panel || !userSettings) {
+      return;
+    }
+
+    // 获取用户设置
+    const numPrevCells = userSettings.get('num_prev_cells').composite as number || 2;
+    const userSettingsData = {
+      prompt: userSettings.get('prompt').composite as string || DEFAULT_PROMPT
+    };
+
+    // 获取提问单元格的id
+    const activeCellIndex = panel.content.activeCellIndex;
+    // TODO: 用户添加/删除了单元格，activeCellIndex错位，则需要额外的监听处理
+    
+    // 首先获取上下文
+    const cellContext = await getOrganizedCellContext(panel, numPrevCells);
+
+    // 访问服务端
+    const responseText = await getChatCompletions(cellContext, userSettingsData);
+
+    // 激活activeCellIndex所在的单元格：因为用户可能在等待过程中，切换到了其他单元格
+    panel.content.activeCellIndex = activeCellIndex;
+    
+    // 在激活单元格下方插入新单元格
+    await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true);
+    
+    // 解锁is_chatting状态，用户可以继续提问
+    panel?.model?.setMetadata('is_chatting', false);
+
+    console.log('End ChatCellData Function, metadata is_chatting: ', panel?.model?.getMetadata('is_chatting'));
+}
+
+
+
+// 获取和整理单元格上下文
+const getOrganizedCellContext = async (panel: NotebookPanel, numPrevCells: number): Promise<string> => {
+
+  let combinedOutput = '';
+  const activeCellIndex = panel.content.activeCellIndex;
+  const startIndex = Math.max(0, activeCellIndex - numPrevCells);
+
+  // 遍历每个单元格
+  for (let i = startIndex; i <= activeCellIndex; i++) {
+    // 单元格模型
+    const cellModel = panel.content.widgets[i].model.toJSON();
+
+    // 添加单元格头
+    combinedOutput += `##########\nCell: ${i}`;
+    if (i === activeCellIndex) {
+      combinedOutput += ' (Current Active Cell)';
+    }
+    combinedOutput += '\n##########\n\n';
+
+    // 单元格Input文本
+    const cellSourceText = cellModel.source?.toString() ?? '';
+
+    // 处理Markdown类型的单元格
+    if (cellModel.cell_type === 'markdown') {
+      combinedOutput += `Markdown:\n----------\n${cellSourceText.trim()}\n----------\n\n`;
+    }
+
+    // 处理Raw类型的单元格
+    if (cellModel.cell_type === 'raw') {
+      combinedOutput += `Raw:\n----------\n${cellSourceText.trim()}\n----------\n\n`;
+    }
+
+    // 处理Code类型的单元格
+    if (cellModel.cell_type === 'code') {
+      combinedOutput += `Code:\n\`\`\`python\n${cellSourceText.trim()}\n\`\`\`\n\n`;
+
+      // 处理输出
+      const cellOutputs = cellModel.outputs; // 获取单元格的outputs
+      if (Array.isArray(cellOutputs) && cellOutputs.length > 0) {
+        combinedOutput += 'Outputs:\n----------\n';
+
+        for (const output of cellOutputs) {
+          const typedOutput = output as IOutput; // 使用类型断言
+          switch (typedOutput.output_type) {
+            case 'stream':
+              {
+                combinedOutput += `${
+                  typedOutput.text?.toString().trim() ?? ''
+                }\n----------\n`;
+              }
+              break;
+            case 'execute_result':
+              {
+                const typedOutputData =
+                  typedOutput.data as IExecuteResult['data'];
+
+                if (typedOutputData['text/html']) {
+                  combinedOutput += `${
+                    typedOutputData['text/html']?.toString().trim() ?? ''
+                  }\n----------\n`;
+                } else {
+                  combinedOutput += `${
+                    typedOutputData['text/plain']?.toString().trim() ?? ''
+                  }\n----------\n`;
+                }
+              }
+              break;
+            case 'error':
+              {
+                const cellErrorText = typedOutput.traceback?.toString() ?? '';
+                combinedOutput += `Error: ${
+                  typedOutput.ename
+                } --- Error Value: ${
+                  typedOutput.evalue
+                }\n${removeANSISequences(cellErrorText)}\n----------\n`;
+              }
+              break;
+            // display_data 跳过
+          }
+        }
+        combinedOutput += '\n';
+      }
+    }
+    combinedOutput += '\n';
   }
 
-  // 修改后的 chatCellData 函数
-  async chatCellData(panel: NotebookPanel): Promise<void> {
-    try {
-      this.chatButton?.startRotation();
-      // 调用 getOrganizedCellContext 获取单元格上下文
-      const cellContext = await this.getOrganizedCellContext(panel);
+  console.log(combinedOutput);
+  console.log('Middle ChatCellData getOrganizedCellContext Function, metadata is_chatting: ', panel?.model?.getMetadata('is_chatting'));
+  return combinedOutput;
+}
 
+
+const getChatCompletions = async (
+  cellContext: string,
+  userSettingsData: any
+  ): Promise<string> => {
+
+    const defaultSettings = {
+      prompt: DEFAULT_PROMPT,
+      model: 'gpt-3.5-turbo',
+      response_format: 'text',
+      temperature: 0.5,
+      timeout: 200,
+      retries: 2,
+      delay: 0.5,
+      // 其他可能的默认值...
+    };
+    // 现在 combinedSettings 包含了所有的设置，缺失的部分使用了默认值
+    // 你可以在这里使用 combinedSettings
+    const combinedSettings = { ...defaultSettings, ...userSettingsData };
+
+    // 如果cellContext为null、undefined、空字符串''、数字0、或布尔值false时，不访问服务器，直接返回
+    if (!cellContext){
+      return 'No context is provided to the assistant...';
+    }
+
+    try {
       // 构建请求体
       const requestBody = {
         messages: [
           {
             role: 'system',
-            content: this.settings.get('prompt').composite as string
+            content: combinedSettings.prompt
           },
           {
             role: 'user',
             content: cellContext
           }
         ],
-        model: 'gpt-3.5-turbo',
-        response_format: 'text',
-        temperature: 0.5,
-        timeout: 200,
-        retries: 2,
-        delay: 0.5
+        model: combinedSettings.model,
+        response_format: combinedSettings.response_format,
+        temperature: combinedSettings.temperature,
+        timeout: combinedSettings.timeout,
+        retries: combinedSettings.retries,
+        delay: combinedSettings.delay
       };
-
+  
       // 服务端交互
-
-      const settings = ServerConnection.makeSettings({});
+      const serverSettings = ServerConnection.makeSettings({});
       const serverResponse = await ServerConnection.makeRequest(
-        URLExt.join(settings.baseUrl, '/jupyterlab-notechat/chat'),
+        URLExt.join(serverSettings.baseUrl, '/jupyterlab-notechat/chat'),
         {
           method: 'POST',
           body: JSON.stringify(requestBody),
@@ -242,129 +358,79 @@ class ChatButtonExtension
             'Content-Type': 'application/json'
           }
         },
-        settings
+        serverSettings
       );
 
+      //服务端异常处理
       if (!serverResponse.ok) {
-        console.error(
-          'Error sending data to the server:',
-          serverResponse.statusText
-        );
-        return;
+        console.error('Error in sending data to the server:', serverResponse.statusText);
+        return 'Error in sending data to the server...';
       }
-
       const res = await serverResponse.json();
       console.log('Server response:', res);
-
-      this.insertNewCellBelow(panel, res.choices[0].message.content);
-      // this.insertNewCellBelow(panel, cellContext.substring(0, 100));
+      return res.choices[0].message.content;
+  
     } catch (error) {
       console.error('Error in chatCellData:', error);
-    }
-    this.chatButton?.stopRotation();
-  }
-
-  // 新增函数：在当前选中的单元格下方插入一个新的单元格
-  private insertNewCellBelow(panel: NotebookPanel, newText: string): void {
-    NotebookActions.insertBelow(panel.content);
-    // 如果需要，可以进一步自定义新插入的单元格
-    const newCell = panel.content.activeCell;
-    if (newCell) {
-      newCell.model.sharedModel.setSource('**AI Assistant:**\n\n' + newText); // 将单元格的source设置为指定的内容
-      NotebookActions.changeCellType(panel.content, 'markdown'); // 将单元格类型更改为 Markdown
-      NotebookActions.run(panel.content, panel.sessionContext); // 运行单元格
-    }
-  }
-
-  // 将获取当前cell之前的2个cell的input和output
-  async sendContextCellData(panel: NotebookPanel): Promise<void> {
-    const activeCell = panel.content.activeCell;
-    const activeCellIndex = panel.content.activeCellIndex;
-    const totalCellCount = panel.content.widgets.length;
-    // 获取统计信息
-    console.log('==========');
-    console.log(
-      'Cell Counts: ',
-      totalCellCount,
-      ' ... Current Active Cell:',
-      activeCellIndex
-    );
-    console.log('----------');
-
-    // 获取当前active cell之前的2个cell的source和output，打印出来
-    const startIndex = Math.max(0, activeCellIndex - 2);
-    // 遍历从开始索引到活动单元格的单元格
-    for (let i = startIndex; i < activeCellIndex; i++) {
-      const targetCell = panel.content.widgets[i];
-      const cellSource = targetCell.model.toJSON().source; // 获取单元格的source
-      const cellOutputs = targetCell.model.toJSON().outputs; // 获取单元格的outputs
-
-      console.log(`Cell ${i} Content:\n`, cellSource);
-      console.log(`Cell ${i} Output:\n`, cellOutputs);
-      console.log('~~~~~~~~~~');
+      return 'Error in chatCellData...';
     }
 
-    // 获取当前cell的input和output内容
-    const cellSource = activeCell?.model.toJSON().source;
-    console.log('Current Cell Content:\n', cellSource);
-    const cellOutputs = activeCell?.model.toJSON().outputs;
-    console.log('Current Cell Output:\n', cellOutputs);
-    console.log('==========');
-  }
+}
 
-  //获得当前激活单元格的信息
-  async sendActiveCellData(panel: NotebookPanel): Promise<void> {
-    const activeCell = panel.content.activeCell;
-    const cellContent = activeCell?.model.toJSON().source;
-    // 将内容转换为单个字符串（如果它是一个数组）
-    const cellText = Array.isArray(cellContent)
-      ? cellContent.join('\n')
-      : cellContent;
 
-    if (!cellText || !this.isValidJson(cellText)) {
-      console.error('No valid JSON content in the active cell');
-      return;
-    }
-    console.log('Server response:', cellText);
-    const settings = ServerConnection.makeSettings({});
-    const serverResponse = await ServerConnection.makeRequest(
-      URLExt.join(settings.baseUrl, '/jupyterlab-notechat/chat'),
-      {
-        method: 'POST',
-        body: cellText,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      },
-      settings
-    );
-
-    if (!serverResponse.ok) {
-      console.error(
-        'Error sending data to the server:',
-        serverResponse.statusText
-      );
-      return;
-    }
-
-    const res = await serverResponse.json();
-    console.log('Server response:', res);
-  }
-
-  private isValidJson(str: string): boolean {
-    try {
-      JSON.parse(str);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  private removeANSISequences(tracebackText: string): string {
-    // eslint-disable-next-line no-control-regex
-    const ansiEscapeRegex = /\u001b\[[0-9;]*m/g;
-    return tracebackText.replace(ansiEscapeRegex, '');
+const insertNewMdCellBelow = async (
+  panel: NotebookPanel,
+  newText: string,
+  heading: string = '',
+  needRun: boolean = true
+  ): Promise<void> => {
+  NotebookActions.insertBelow(panel.content);
+  // 如果需要，可以进一步自定义新插入的单元格
+  const newCell = panel.content.activeCell;
+  if (newCell) {
+    newCell.model.sharedModel.setSource(heading + newText); // 将单元格的source设置为指定的内容
+    NotebookActions.changeCellType(panel.content, 'markdown'); // 将单元格类型更改为 Markdown
+    if (needRun) NotebookActions.run(panel.content, panel.sessionContext); // 运行单元格
   }
 }
+
+
+// 移除ANSI转义序列
+const removeANSISequences = (str: string): string => {
+  // eslint-disable-next-line no-control-regex
+  const ansiEscapeRegex = /\u001b\[[0-9;]*m/g;
+  return str.replace(ansiEscapeRegex, '');
+}
+
+
+const showCustomNotification = async (
+  message: string,
+  panel: NotebookPanel
+  ): Promise<void> => {
+  
+  const toolbar = panel.toolbar.node; // 假设 `panel` 是当前的 NotebookPanel 实例
+  const toolbarRect = toolbar.getBoundingClientRect();
+
+  const notification = document.createElement('div');
+  notification.className = 'notification';
+  notification.textContent = message;
+  notification.style.top = `${toolbarRect.bottom}px`; // 设置在工具栏底部
+
+  document.body.appendChild(notification);
+
+  // 设置点击通知本身，通知即消失
+  notification.onclick = () => {
+    if (document.body.contains(notification)) {
+      document.body.removeChild(notification);
+    }
+  };
+
+  setTimeout(() => {
+    if (document.body.contains(notification)) {
+      document.body.removeChild(notification);
+    }
+  }, 2000); // 2秒后自动关闭
+}
+
 
 export default plugin;
