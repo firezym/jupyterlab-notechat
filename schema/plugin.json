@@ -9,6 +9,12 @@
       "title": "Prompt Instructions for NoteChat AI Assistant",
       "description": "This prompt will be put in the system message for OpenAI chat completions.",
       "default": "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so."
+    },
+    "num_prev_cells":{
+      "type": "integer",
+      "title": "Number of Cells Before the Active Cell As Context for AI Assistant",
+      "description": "These cells' code and content before the active cell will be sent to the AI assistant as context if no other addtional parameters are specified.",
+      "default": 2
     }
   },
   "additionalProperties": false
