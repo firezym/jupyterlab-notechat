@@ -1,6 +1,6 @@
-import { URLExt } from '@jupyterlab/coreutils';
+import { URLExt } from '@jupyterlab/coreutils'
 
-import { ServerConnection } from '@jupyterlab/services';
+import { ServerConnection } from '@jupyterlab/services'
 
 /**
  * Call the API extension
@@ -14,33 +14,33 @@ export async function requestAPI<T>(
   init: RequestInit = {}
 ): Promise<T> {
   // Make request to Jupyter API
-  const settings = ServerConnection.makeSettings();
+  const settings = ServerConnection.makeSettings()
   const requestUrl = URLExt.join(
     settings.baseUrl,
     'jupyterlab-notechat', // API Namespace
     endPoint
-  );
+  )
 
-  let response: Response;
+  let response: Response
   try {
-    response = await ServerConnection.makeRequest(requestUrl, init, settings);
+    response = await ServerConnection.makeRequest(requestUrl, init, settings)
   } catch (error) {
-    throw new ServerConnection.NetworkError(error as any);
+    throw new ServerConnection.NetworkError(error as any)
   }
 
-  let data: any = await response.text();
+  let data: any = await response.text()
 
   if (data.length > 0) {
     try {
-      data = JSON.parse(data);
+      data = JSON.parse(data)
     } catch (error) {
-      console.log('Not a JSON response body.', response);
+      console.log('Not a JSON response body.', response)
     }
   }
 
   if (!response.ok) {
-    throw new ServerConnection.ResponseError(response, data.message || data);
+    throw new ServerConnection.ResponseError(response, data.message || data)
   }
 
-  return data;
+  return data
 }
