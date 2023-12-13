@@ -181,6 +181,7 @@
         "trailingComma": "none",
         "arrowParens": "avoid",
         "endOfLine": "auto",
+        "semi": false,
         "overrides": [
             {
                 "files": "package.json",
