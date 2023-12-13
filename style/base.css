@@ -6,30 +6,29 @@
 
 /* Rotating Icon */
 .rotate {
-    animation: rotation 2s infinite linear;
+  animation: rotation 2s infinite linear;
 }
 
 @keyframes rotation {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
+  from {
+    transform: rotate(0deg);
+  }
 
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Notification */
 .notification {
-    position: fixed; /* 使用 fixed 以确保通知在视窗中固定 */
-    z-index: 1000; /* 确保在其他元素上方 */
-    background-color: rgba(0, 0, 0, 0.8); /* 黑色半透明背景 */
-    color: #fff; /* 文本颜色 */
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    left: 50%; /* 水平居中 */
-    top: 50%; /* 垂直居中 */
-    transform: translateX(-50%); 
-    /* 其他样式... */
-  }
+  position: fixed; /* 使用 fixed 以确保通知在视窗中固定 */
+  z-index: 1000; /* 确保在其他元素上方 */
+  background-color: rgba(0 0 0 / 80%); /* 黑色半透明背景 */
+  color: #fff; /* 文本颜色 */
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0 0 0 / 20%);
+  left: 50%; /* 水平居中 */
+  top: 50%; /* 垂直居中 */
+  transform: translateX(-50%);
+}
