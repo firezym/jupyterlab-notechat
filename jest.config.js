@@ -1,4 +1,4 @@
-const jestJupyterLab = require('@jupyterlab/testutils/lib/jest-config');
+const jestJupyterLab = require('@jupyterlab/testutils/lib/jest-config')
 
 const esModules = [
   '@codemirror',
@@ -10,9 +10,9 @@ const esModules = [
   'y-protocols',
   'y-websocket',
   'yjs'
-].join('|');
+].join('|')
 
-const baseConfig = jestJupyterLab(__dirname);
+const baseConfig = jestJupyterLab(__dirname)
 
 module.exports = {
   ...baseConfig,
@@ -25,4 +25,4 @@ module.exports = {
   coverageReporters: ['lcov', 'text'],
   testRegex: 'src/.*/.*.spec.ts[x]?$',
   transformIgnorePatterns: [`/node_modules/(?!${esModules}).+`]
-};
+}

@@ -1,7 +1,7 @@
 /**
  * Configuration for Playwright using default from @jupyterlab/galata
  */
-const baseConfig = require('@jupyterlab/galata/lib/playwright-config');
+const baseConfig = require('@jupyterlab/galata/lib/playwright-config')
 
 module.exports = {
   ...baseConfig,
@@ -11,4 +11,4 @@ module.exports = {
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI
   }
-};
+}
