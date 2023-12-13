@@ -21,9 +21,14 @@ import { reactIcon } from '@jupyterlab/ui-components'
  */
 
 const DEFAULT_PROMPT = "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so.";
+
 const PLUGIN_ID = 'jupyterlab-notechat:plugin';
 
+// 用于存储每个NotebookPanel对应的按钮，暂时这么解决
+const BUTTON_MAP = new Map();
 
+
+// 插件定义
 const plugin: JupyterFrontEndPlugin<void> = {
   id: PLUGIN_ID,
   description: 'Chat with an AI Assistant in the Notebook using OpenAI API',
@@ -54,7 +59,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 return;
               }
               console.log('Command Triggered ChatCellData: settings:', settings.composite);
-              return chatCellData(currentPanel, settings);
+              // 通过标识符获取按钮，使用类型断言
+              const button = BUTTON_MAP.get(currentPanel);
+              if (button && button.chatCellData) {
+                console.log('Command Triggered Button: ', button);
+                return button.chatCellData();
+              }
             }
           });
           // Add command to the palette
@@ -84,6 +94,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
               }
             )
             toolbar.insertItem(11, 'chatButton', button)
+            // 将 panel 与按钮关联
+            BUTTON_MAP.set(panel, button);
+
+            console.log('BUTTON_MAP:', BUTTON_MAP);
+
+            // 监听 panel 的关闭或销毁事件，防止内存泄露
+            panel.disposed.connect(() => {
+              // 当 panel 被销毁时，从 Map 中移除它的引用
+              BUTTON_MAP.delete(panel);
+              console.log('BUTTON_MAP:', BUTTON_MAP);
+            });
             // console.log('notechat: metadata state before: ', panel.model?.getMetadata('is_chatting'))
             // panel.model?.setMetadata('is_chatting', false)
             // tracker.currentWidget?.model?.setMetadata('is_chatting', false) //也不行
@@ -108,6 +129,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 };
 
 
+// 按钮定义，按钮维护转动和非转动状态，所以一般chatCellData都从按钮组件入口调用
 class RotatingToolbarButton extends ToolbarButton {
 
   public readonly creationTimestamp: number;
@@ -125,9 +147,33 @@ class RotatingToolbarButton extends ToolbarButton {
       this.node.addEventListener('click', this.handleClick);
   }
 
+  // 点击事件
   handleClick = () => {
     console.log('RotatingToolbarButton onClick Event, Creation ID:', this.creationTimestamp);
-    
+    this.chatCellData();
+  }
+
+  // 开始旋转
+  startRotation() {
+    console.log('Inner Chat Button Start Rotation:', this.creationTimestamp);
+    const iconElement = this.node.querySelector('[class*="icon"]');
+    if (iconElement) {
+      iconElement.classList.add('rotate');
+    }
+  }
+
+  // 停止旋转
+  stopRotation() {
+    console.log('Inner Chat Button Stop Rotation:', this.creationTimestamp);
+    const iconElement = this.node.querySelector('[class*="icon"]');
+    if (iconElement) {
+      iconElement.classList.remove('rotate');
+    }
+  }
+
+  // 封装chatCellData函数，加入一些设计UI前端界面的操作
+  public chatCellData = async (): Promise<void> => {
+
     // 如果AI正忙，则弹框提示
     if (this.panel?.model?.getMetadata('is_chatting')) {
       showCustomNotification('Please wait a moment, the AI Assistant is responding...', this.panel);
@@ -141,44 +187,21 @@ class RotatingToolbarButton extends ToolbarButton {
     });
 
   }
-
-  startRotation() {
-    console.log('Inner Chat Button Start Rotation:', this.creationTimestamp);
-    const iconElement = this.node.querySelector('[class*="icon"]');
-    if (iconElement) {
-      iconElement.classList.add('rotate');
-    }
-  }
-
-  stopRotation() {
-    console.log('Inner Chat Button Stop Rotation:', this.creationTimestamp);
-    const iconElement = this.node.querySelector('[class*="icon"]');
-    if (iconElement) {
-      iconElement.classList.remove('rotate');
-    }
-  }
 }
 
-
+// 和AI对话的主逻辑，这里除了在notebook中插入生成的单元格外，较少进行button等UI界面逻辑的处理
 const chatCellData = async (
   panel: NotebookPanel | null,
   userSettings: ISettingRegistry.ISettings | null
   ): Promise<void> => {
 
-    console.log('Start ChatCellData Function, metadata is_chatting: ', panel?.model?.getMetadata('is_chatting'));
-    
-    // 如果AI正忙，则弹框提示
-    if (panel?.model?.getMetadata('is_chatting')) {
-      showCustomNotification('Please wait a moment, the AI Assistant is responding...', panel);
-      return;
-    }
-
-    // 设置is_chatting状态，防止用户重复点击或重复执行命令
-    panel?.model?.setMetadata('is_chatting', true);
-
     if (!panel || !userSettings) {
       return;
     }
+
+    // 设置is_chatting状态，可以防止用户重复点击或重复执行命令
+    panel?.model?.setMetadata('is_chatting', true);
+    console.log('Start ChatCellData Function, metadata is_chatting: ', panel?.model?.getMetadata('is_chatting'));
 
     // 获取用户设置
     const numPrevCells = userSettings.get('num_prev_cells').composite as number || 2;
@@ -204,7 +227,6 @@ const chatCellData = async (
     
     // 解锁is_chatting状态，用户可以继续提问
     panel?.model?.setMetadata('is_chatting', false);
-
     console.log('End ChatCellData Function, metadata is_chatting: ', panel?.model?.getMetadata('is_chatting'));
 }
 
@@ -302,6 +324,7 @@ const getOrganizedCellContext = async (panel: NotebookPanel, numPrevCells: numbe
 }
 
 
+// 访问服务器获取AI回复
 const getChatCompletions = async (
   cellContext: string,
   userSettingsData: any
@@ -378,6 +401,7 @@ const getChatCompletions = async (
 }
 
 
+// 在当前活动单元格下方插入新的Markdown单元格，并执行，这样AI回复界面更美观
 const insertNewMdCellBelow = async (
   panel: NotebookPanel,
   newText: string,
@@ -403,18 +427,21 @@ const removeANSISequences = (str: string): string => {
 }
 
 
+// 自定义弹出通知界面，在toolbar的下方弹出
 const showCustomNotification = async (
   message: string,
   panel: NotebookPanel
   ): Promise<void> => {
   
-  const toolbar = panel.toolbar.node; // 假设 `panel` 是当前的 NotebookPanel 实例
+  // 假设 `panel` 是当前的 NotebookPanel 实例
+  const toolbar = panel.toolbar.node; 
   const toolbarRect = toolbar.getBoundingClientRect();
 
   const notification = document.createElement('div');
   notification.className = 'notification';
   notification.textContent = message;
-  notification.style.top = `${toolbarRect.bottom}px`; // 设置在工具栏底部
+  // 设置在工具栏底部
+  notification.style.top = `${toolbarRect.bottom}px`;
 
   document.body.appendChild(notification);
 
