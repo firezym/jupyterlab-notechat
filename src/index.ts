@@ -43,10 +43,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       settingRegistry
         .load(plugin.id)
         .then(settings => {
-          console.log(
-            'jupyterlab-notechat settings loaded:',
-            settings.composite
-          )
+          console.log('NoteChat: settings loaded', settings.composite)
 
           // Add an application command
           const command: string = 'jupyterlab-notechat:chat-cell-data'
@@ -58,14 +55,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
               if (!currentPanel) {
                 return
               }
-              console.log(
-                'Command Triggered ChatCellData: settings:',
-                settings.composite
-              )
+              console.log('NoteChat: command triggered settings: ', settings.composite)
               // 通过标识符获取按钮，使用类型断言
               const button = BUTTON_MAP.get(currentPanel)
               if (button && button.chatCellData) {
-                console.log('Command Triggered Button: ', button)
+                console.log('NoteChat: command triggered chatButton id: ', button.creationTimestamp)
                 return button.chatCellData()
               }
             }
@@ -83,27 +77,28 @@ const plugin: JupyterFrontEndPlugin<void> = {
           notebookTracker.widgetAdded.connect((tracker, panel) => {
             let button = BUTTON_MAP.get(panel)
             if (button) {
-              console.log('notechat: chatbutton already on toolbar')
+              console.log('NoteChat: chatButton already on toolbar, id: ', button.creationTimestamp)
               return
             }
             // 如果没有按钮，则创建一个
-            console.log('notechat: adding chatbutton')
             button = new RotatingToolbarButton(panel, settings, {
-              label: 'ChatAI',
-              icon: reactIcon
+              label: 'NoteChat',
+              icon: reactIcon,
+              tooltip: 'Chat with AI Assistant',
             })
+            console.log('NoteChat: new chatButton CREATED, id: ', button.creationTimestamp)
             const toolbar = panel.toolbar
             toolbar.insertItem(11, 'chatButton', button)
             // 将 panel 与按钮关联
             BUTTON_MAP.set(panel, button)
 
-            console.log('BUTTON_MAP:', BUTTON_MAP)
+            console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
 
             // 监听 panel 的关闭或销毁事件，防止内存泄露
             panel.disposed.connect(() => {
               // 当 panel 被销毁时，从 Map 中移除它的引用
               BUTTON_MAP.delete(panel)
-              console.log('BUTTON_MAP:', BUTTON_MAP)
+              console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
             })
             // console.log('notechat: metadata state before: ', panel.model?.getMetadata('is_chatting'))
             // panel.model?.setMetadata('is_chatting', false)
@@ -117,10 +112,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           })
         })
         .catch(reason => {
-          console.error(
-            'Failed to load settings for jupyterlab-notechat.',
-            reason
-          )
+          console.error('NoteChat: failed to load settings for jupyterlab-notechat.', reason)
         })
     }
   }
@@ -147,15 +139,13 @@ class RotatingToolbarButton extends ToolbarButton {
   // 点击事件
   handleClick = () => {
     console.log(
-      'RotatingToolbarButton onClick Event, Creation ID:',
-      this.creationTimestamp
-    )
+      'NoteChat: chatButton ON CLICK, id: ', this.creationTimestamp)
     this.chatCellData()
   }
 
   // 开始旋转
   startRotation() {
-    console.log('Inner Chat Button Start Rotation:', this.creationTimestamp)
+    console.log('NoteChat: chatButton START rotating, id: ', this.creationTimestamp)
     const iconElement = this.node.querySelector('[class*="icon"]')
     if (iconElement) {
       iconElement.classList.add('rotate')
@@ -164,7 +154,7 @@ class RotatingToolbarButton extends ToolbarButton {
 
   // 停止旋转
   stopRotation() {
-    console.log('Inner Chat Button Stop Rotation:', this.creationTimestamp)
+    console.log('NoteChat: chatButton STOP rotating, id: ', this.creationTimestamp)
     const iconElement = this.node.querySelector('[class*="icon"]')
     if (iconElement) {
       iconElement.classList.remove('rotate')
@@ -177,7 +167,7 @@ class RotatingToolbarButton extends ToolbarButton {
     if (this.panel?.model?.getMetadata('is_chatting')) {
       showCustomNotification(
         'Please wait a moment, the AI Assistant is responding...',
-        this.panel
+        this.panel, 2000
       )
       return
     }
@@ -202,7 +192,7 @@ const chatCellData = async (
   // 设置is_chatting状态，可以防止用户重复点击或重复执行命令
   panel?.model?.setMetadata('is_chatting', true)
   console.log(
-    'Start ChatCellData Function, metadata is_chatting: ',
+    'NoteChat: START chatting, notebook is_chatting status: ',
     panel?.model?.getMetadata('is_chatting')
   )
 
@@ -215,8 +205,8 @@ const chatCellData = async (
 
   // 获取提问单元格的id
   const activeCellIndex = panel.content.activeCellIndex
-  // TODO: 用户添加/删除了单元格，activeCellIndex错位，则需要额外的监听处理
-
+  /** TODO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
+  
   // 首先获取上下文
   const cellContext = await getOrganizedCellContext(panel, numPrevCells)
 
@@ -232,7 +222,7 @@ const chatCellData = async (
   // 解锁is_chatting状态，用户可以继续提问
   panel?.model?.setMetadata('is_chatting', false)
   console.log(
-    'End ChatCellData Function, metadata is_chatting: ',
+    'NoteChat: END chatting, notebook is_chatting status: ',
     panel?.model?.getMetadata('is_chatting')
   )
 }
@@ -327,7 +317,7 @@ const getOrganizedCellContext = async (
 
   console.log(combinedOutput)
   console.log(
-    'Middle ChatCellData getOrganizedCellContext Function, metadata is_chatting: ',
+    'NoteChat: context processed, notebook is_chatting status: ',
     panel?.model?.getMetadata('is_chatting')
   )
   return combinedOutput
@@ -395,17 +385,15 @@ const getChatCompletions = async (
     //服务端异常处理
     if (!serverResponse.ok) {
       console.error(
-        'Error in sending data to the server:',
-        serverResponse.statusText
-      )
+        'NoteChat: ERROR in sending data to the server: ', serverResponse.statusText)
       return 'Error in sending data to the server...'
     }
     const res = await serverResponse.json()
-    console.log('Server response:', res)
+    console.log('NoteChat: server response:', res)
     return res.choices[0].message.content
   } catch (error) {
-    console.error('Error in chatCellData:', error)
-    return 'Error in chatCellData...'
+    console.error('NoteChat: ERROR in function getChatCompletions: ', error)
+    return 'Error in function getChatCompletions...'
   }
 }
 
@@ -438,7 +426,8 @@ const removeANSISequences = (str: string): string => {
 // 自定义弹出通知界面，在toolbar的下方弹出
 const showCustomNotification = async (
   message: string,
-  panel: NotebookPanel
+  panel: NotebookPanel,
+  timeout: number = 2000
 ): Promise<void> => {
   // 假设 `panel` 是当前的 NotebookPanel 实例
   const toolbar = panel.toolbar.node
@@ -459,11 +448,12 @@ const showCustomNotification = async (
     }
   }
 
+  // 自动关闭延时
   setTimeout(() => {
     if (document.body.contains(notification)) {
       document.body.removeChild(notification)
     }
-  }, 2000) // 2秒后自动关闭
+  }, timeout)
 }
 
 export default plugin
