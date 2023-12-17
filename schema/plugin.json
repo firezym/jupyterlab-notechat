@@ -2,7 +2,20 @@
   "jupyter.lab.shortcuts": [],
   "title": "NoteChat",
   "description": "Settings for NoteChat Extentsion (jupyterlab-notechat)",
-  "type": "object",
+  "jupyter.lab.menus": {
+    "main": [
+      {
+        "id": "jp-mainmenu-notechat-menu",
+        "label": "NoteChat",
+        "rank": 1000,
+        "items": [
+          {
+            "command": "jupyterlab-notechat:chat-cell-data"
+          }
+        ]
+      }
+    ]
+  },
   "properties": {
     "prompt": {
       "type": "string",
@@ -17,5 +30,6 @@
       "default": 2
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "type": "object"
 }
