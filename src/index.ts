@@ -45,7 +45,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         .then(settings => {
           console.log('NoteChat: settings loaded', settings.composite)
 
-          // Add an application command
+          /** Add command: chat cell with AI Assistant */
           const command: string = 'jupyterlab-notechat:chat-cell-data'
           app.commands.addCommand(command, {
             label: 'Chat with AI Assistant',
@@ -110,6 +110,33 @@ const plugin: JupyterFrontEndPlugin<void> = {
             // console.log('notechat: model', panel.model?.metadata)
             // console.log('notechat: model', panel.model)
           })
+
+
+          /** Add command: chat cell data range with AI Assistant */
+          const command_range: string = 'jupyterlab-notechat:chat-cell-data-all'
+          app.commands.addCommand(command_range, {
+            label: 'Run All Cells with AI Assistant',
+            icon: reactIcon,
+            execute: () => {
+              const currentPanel = notebookTracker.currentWidget
+              if (!currentPanel) {
+                return
+              }
+              console.log('NoteChat: command triggered settings: ', settings.composite)
+              return chatCellDataRange(currentPanel, settings, null, null)
+            }
+          })
+          // Add command to the palette
+          palette.addItem({ command, category: 'notechat' })
+          // Add hotkeys: Alt + C
+          app.commands.addKeyBinding({
+            command,
+            keys: ['Alt A'],
+            selector: '.jp-Notebook'
+          })
+
+
+
         })
         .catch(reason => {
           console.error('NoteChat: failed to load settings for jupyterlab-notechat.', reason)
@@ -174,9 +201,8 @@ class RotatingToolbarButton extends ToolbarButton {
 
     // 开始和AI对话
     this.startRotation()
-    chatCellData(this.panel, this.settings).then(() => {
-      this.stopRotation()
-    })
+    await chatCellData(this.panel, this.settings)
+    this.stopRotation()
   }
 }
 
@@ -488,6 +514,66 @@ const showCustomNotification = async (
       document.body.removeChild(notification)
     }
   }, timeout)
+}
+
+// 按照用户指定的cell id范围，运行之间所有的cell，自动识别需要AI Assistant的回复
+const chatCellDataRange = async (
+  panel: NotebookPanel | null,
+  userSettings: ISettingRegistry.ISettings | null,
+  startIndex: number | null,
+  endIndex: number | null
+): Promise<void> => {
+  if (!panel || !userSettings) {
+    return
+  }
+
+  showCustomNotification(
+    'Start running cells with AI Assistant, please do not add or delete any cells during running...',
+    panel, 2000
+  )
+
+  console.log('NoteChat: START run cells with chatting')
+  const maxIndex = panel.content.widgets.length - 1
+  startIndex = startIndex ?? 0
+  endIndex = endIndex ?? maxIndex
+
+  // 先找到需要运行的cell，然后再一个个运行，从后向前找更方便，这样有多个Assistant的回复，就可以顺利跳开
+  const runCellTypes = []
+  for (let i = endIndex; i >= startIndex; i--) {
+    const currentCellSource = panel.content.widgets[i]?.model.toJSON().source?.toString() ?? ''
+    if (currentCellSource.startsWith('**AI Assistant:**')) {
+      continue
+    } else {
+      const nextCellSource = panel.content.widgets[i+1]?.model.toJSON().source?.toString() ?? ''
+      if (currentCellSource.startsWith('**User:**') || nextCellSource.startsWith('**AI Assistant:**')) {
+        runCellTypes.push({'id': i, 'type': 'chat'})
+      } else {
+        runCellTypes.push({'id': i, 'type': 'normal'})
+      }
+    }
+  }
+  // 反转数组，从前向后运行
+  runCellTypes.reverse()
+  console.log('NoteChat: run all cells, id: ', runCellTypes)
+
+  const button = BUTTON_MAP.get(panel)
+  console.log('NoteChat: run all cells triggered chatButton id: ', button.creationTimestamp)
+
+  // 遍历数组，运行单元格
+  for (const cell of runCellTypes) {
+    if (cell.type === 'chat') {
+      console.log('NoteChat: run cell with chatting, id: ', cell.id)
+      panel.content.activeCellIndex = cell.id
+      await NotebookActions.run(panel.content, panel.sessionContext)
+      await button.chatCellData()
+    } else {
+      console.log('NoteChat: run cell normally, id: ', cell.id)
+      panel.content.activeCellIndex = cell.id
+      await NotebookActions.run(panel.content, panel.sessionContext)
+    }
+  }
+
+  console.log('NoteChat: End run cells with chatting')
 }
 
 export default plugin

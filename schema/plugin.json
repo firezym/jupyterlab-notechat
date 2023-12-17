@@ -11,6 +11,9 @@
         "items": [
           {
             "command": "jupyterlab-notechat:chat-cell-data"
+          },
+          {
+            "command": "jupyterlab-notechat:chat-cell-data-all"
           }
         ]
       }
