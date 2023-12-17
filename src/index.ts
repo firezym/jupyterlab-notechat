@@ -207,7 +207,7 @@ const chatCellData = async (
   // 默认为当前活动单元格的id
   let activeCellIndex = panel.content.activeCellIndex
   // 向上寻找直到找到一个不是AI回复的单元格
-  while (panel.content.widgets[activeCellIndex]?.model.toJSON().source.toString().startsWith('**AI Assistant:**')) {
+  while (panel.content.widgets[activeCellIndex]?.model.toJSON().source?.toString().startsWith('**AI Assistant:**')) {
     activeCellIndex = activeCellIndex - 1
     console.log('NoteChat: this is an AI Assistant reply, jump to previous cell for question, previous id : ', activeCellIndex)
     panel.content.activeCellIndex = activeCellIndex
@@ -225,17 +225,12 @@ const chatCellData = async (
   panel.content.activeCellIndex = activeCellIndex
 
   // 如果下方单元格中如果是AI回复内容，则替换原内容，否则插入新单元格
-  if (panel.content.widgets.length - 1 >= activeCellIndex + 1) {
-    if (panel.content.widgets[activeCellIndex + 1]?.model.toJSON().source?.toString().startsWith('**AI Assistant:**')) {
-      // 下方单元格中含有**AI Assistant:**，则替换原内容
-      console.log('NoteChat: replace below md cell content containing **AI Assistant:**')
-      await replaceMdCellContentBelow(panel, responseText, '**AI Assistant:**\n\n', true)
-    } else {
-      // 不含有AI回复标记，则插入新单元格
-      await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true)
-    }
+  if (panel.content.widgets[activeCellIndex + 1]?.model.toJSON().source?.toString().startsWith('**AI Assistant:**')) {
+    // 下方单元格中含有**AI Assistant:**，则替换原内容
+    console.log('NoteChat: replace below md cell content containing **AI Assistant:**')
+    await replaceMdCellContentBelow(panel, responseText, '**AI Assistant:**\n\n', true)
   } else {
-    // 如果下方没有单元格，则也插入新单元格
+    // 如果下方没有单元格或不含有AI回复标记，则插入新单元格
     await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true)
   }
 
