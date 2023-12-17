@@ -204,7 +204,15 @@ const chatCellData = async (
   }
 
   // 获取提问单元格的id
-  const activeCellIndex = panel.content.activeCellIndex
+  // 默认为当前活动单元格的id
+  let activeCellIndex = panel.content.activeCellIndex
+  // 向上寻找直到找到一个不是AI回复的单元格
+  while (panel.content.widgets[activeCellIndex]?.model.toJSON().source.toString().startsWith('**AI Assistant:**')) {
+    activeCellIndex = activeCellIndex - 1
+    console.log('NoteChat: this is an AI Assistant reply, jump to previous cell for question, previous id : ', activeCellIndex)
+    panel.content.activeCellIndex = activeCellIndex
+  }
+
   /** TODO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
   
   // 首先获取上下文
@@ -216,8 +224,20 @@ const chatCellData = async (
   // 激活activeCellIndex所在的单元格：因为用户可能在等待过程中，切换到了其他单元格
   panel.content.activeCellIndex = activeCellIndex
 
-  // 在激活单元格下方插入新单元格
-  await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true)
+  // 如果下方单元格中如果是AI回复内容，则替换原内容，否则插入新单元格
+  if (panel.content.widgets.length - 1 >= activeCellIndex + 1) {
+    if (panel.content.widgets[activeCellIndex + 1]?.model.toJSON().source?.toString().startsWith('**AI Assistant:**')) {
+      // 下方单元格中含有**AI Assistant:**，则替换原内容
+      console.log('NoteChat: replace below md cell content containing **AI Assistant:**')
+      await replaceMdCellContentBelow(panel, responseText, '**AI Assistant:**\n\n', true)
+    } else {
+      // 不含有AI回复标记，则插入新单元格
+      await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true)
+    }
+  } else {
+    // 如果下方没有单元格，则也插入新单元格
+    await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true)
+  }
 
   // 解锁is_chatting状态，用户可以继续提问
   panel?.model?.setMetadata('is_chatting', false)
@@ -240,7 +260,7 @@ const getOrganizedCellContext = async (
   for (let i = startIndex; i <= activeCellIndex; i++) {
     // 单元格模型
     const cellModel = panel.content.widgets[i].model.toJSON()
-
+    console.log('cell info: ', panel.content.widgets[i].model.toJSON())
     // 添加单元格头
     combinedOutput += `##########\nCell: ${i}`
     if (i === activeCellIndex) {
@@ -409,6 +429,25 @@ const insertNewMdCellBelow = async (
   const newCell = panel.content.activeCell
   if (newCell) {
     newCell.model.sharedModel.setSource(heading + newText) // 将单元格的source设置为指定的内容
+    NotebookActions.changeCellType(panel.content, 'markdown') // 将单元格类型更改为 Markdown
+    if (needRun) {
+      NotebookActions.run(panel.content, panel.sessionContext)
+    } // 运行单元格
+  }
+}
+
+// 在当前活动单元格下方插入新的Markdown单元格，并执行，这样AI回复界面更美观
+const replaceMdCellContentBelow = async (
+  panel: NotebookPanel,
+  newText: string,
+  heading: string = '',
+  needRun: boolean = true
+): Promise<void> => {
+  NotebookActions.selectBelow(panel.content)
+  // 置换单元格内容
+  const belowCell = panel.content.activeCell
+  if (belowCell) {
+    belowCell.model.sharedModel.setSource(heading + newText) // 将单元格的source设置为指定的内容
     NotebookActions.changeCellType(panel.content, 'markdown') // 将单元格类型更改为 Markdown
     if (needRun) {
       NotebookActions.run(panel.content, panel.sessionContext)
