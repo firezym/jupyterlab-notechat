@@ -178,9 +178,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
               cell.model.toJSON().id
             )
 
-            if (cell.model.type !== 'markdown') {
-              return
-            }
+            // if (cell.model.type !== 'markdown') {
+            //   return
+            // }
 
             // 查找与 executedNotebook 匹配的 NotebookPanel
             const panel = notebookTracker.find(notebookPanel => {
@@ -190,7 +190,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
             if (panel) {
               // 去掉含有AI_NAME一整行的内容，因为包括了一些不必要的参数的信息
               const source = cell.model.toJSON().source?.toString() ?? ''
-              const processedSource = processMdCellString(
+              const processedSource = processCellSourceString(
                 source,
                 AI_NAME,
                 `${REF_NAME} || ${REF_NAME}s`
@@ -409,7 +409,7 @@ const getOrganizedCellContext = async (
 
     // 单元格Input文本
     let cellSourceText = cellModel.source?.toString() ?? ''
-    cellSourceText = processMdCellString(
+    cellSourceText = processCellSourceString(
       cellSourceText,
       '',
       `${REF_NAME} || ${REF_NAME}s`
@@ -635,7 +635,7 @@ const removeANSISequences = (str: string): string => {
 }
 
 // 处理markdown cell的字符串
-const processMdCellString = (
+const processCellSourceString = (
   cellString: string,
   removeHeadString: string = '',
   removeTailString: string = ''
@@ -802,18 +802,18 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // console.log('NoteChat: initialize panel, cell id: ', cell.model.toJSON().id)
 
     // 读取所有markdown的信息至kernel中
-    if (cell.model.type === 'markdown') {
-      const source = cell.model.toJSON().source?.toString() ?? ''
-      const processedSource = processMdCellString(
-        source,
-        AI_NAME,
-        `${REF_NAME} || ${REF_NAME}s`
-      )
-      codes.push(
-        `${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
-      )
-      lastRef = `${REF_NAME} = """${processedSource}"""`
-    }
+    // if (cell.model.type === 'markdown') {
+    const source = cell.model.toJSON().source?.toString() ?? ''
+    const processedSource = processCellSourceString(
+      source,
+      AI_NAME,
+      `${REF_NAME} || ${REF_NAME}s`
+    )
+    codes.push(
+      `${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+    )
+    lastRef = `${REF_NAME} = """${processedSource}"""`
+    // }
   }
   //如果lastRef不为空字符串，则加入codes中
   if (lastRef) {
