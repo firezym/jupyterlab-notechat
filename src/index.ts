@@ -25,6 +25,10 @@ const PLUGIN_ID = 'jupyterlab-notechat:plugin'
 // 用于存储每个NotebookPanel对应的按钮，暂时这么解决
 const BUTTON_MAP = new Map()
 
+let AI_NAME = '**AI Assistant:**'
+let USER_NAME = '**User:**'
+let REF_NAME = '_ref'
+
 // 插件定义
 const plugin: JupyterFrontEndPlugin<void> = {
   id: PLUGIN_ID,
@@ -100,6 +104,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
               BUTTON_MAP.delete(panel)
               console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
             })
+
+            // 初始化panel完成后，执行自定义的初始化
+            panel.sessionContext.ready.then(() => {
+              initializePanel(panel)
+            })
             // console.log('notechat: metadata state before: ', panel.model?.getMetadata('is_chatting'))
             // panel.model?.setMetadata('is_chatting', false)
             // tracker.currentWidget?.model?.setMetadata('is_chatting', false) //也不行
@@ -135,7 +144,36 @@ const plugin: JupyterFrontEndPlugin<void> = {
             selector: '.jp-Notebook'
           })
 
+          /** 将markdown执行的最新结果，放入kernel中，方便notebook代码使用 */
+          NotebookActions.executed.connect((sender, args) => {
+            const notebook = args.notebook
+            const cell = args.cell
 
+            console.log(
+              'NoteChat: executed cell & id: ',
+              cell.model.toJSON().source?.toString(),
+              '\nid: ',
+              cell.model.toJSON().id
+            )
+
+            if (cell.model.type !== 'markdown') {
+              return
+            }
+
+            // 查找与 executedNotebook 匹配的 NotebookPanel
+            let panel = notebookTracker.find(notebookPanel => {
+              return notebookPanel.content === notebook
+            });
+
+            if (panel) {
+              // 去掉含有AI_NAME一整行的内容，因为包括了一些不必要的参数的信息
+              const source = cell.model.toJSON().source?.toString() ?? ''
+              const processedSource = processMdCellString(source, AI_NAME, `${REF_NAME} || ${REF_NAME}s`)
+              panel.sessionContext.session?.kernel?.requestExecute({
+                code: `${REF_NAME} = """${processedSource}"""\n${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`,
+              })
+            }
+          })
 
         })
         .catch(reason => {
@@ -172,7 +210,7 @@ class RotatingToolbarButton extends ToolbarButton {
 
   // 开始旋转
   startRotation() {
-    console.log('NoteChat: chatButton START rotating, id: ', this.creationTimestamp)
+    // console.log('NoteChat: chatButton START rotating, id: ', this.creationTimestamp)
     const iconElement = this.node.querySelector('[class*="icon"]')
     if (iconElement) {
       iconElement.classList.add('rotate')
@@ -181,7 +219,7 @@ class RotatingToolbarButton extends ToolbarButton {
 
   // 停止旋转
   stopRotation() {
-    console.log('NoteChat: chatButton STOP rotating, id: ', this.creationTimestamp)
+    // console.log('NoteChat: chatButton STOP rotating, id: ', this.creationTimestamp)
     const iconElement = this.node.querySelector('[class*="icon"]')
     if (iconElement) {
       iconElement.classList.remove('rotate')
@@ -233,7 +271,7 @@ const chatCellData = async (
   // 默认为当前活动单元格的id
   let activeCellIndex = panel.content.activeCellIndex
   // 向上寻找直到找到一个不是AI回复的单元格
-  while (panel.content.widgets[activeCellIndex]?.model.toJSON().source?.toString().startsWith('**AI Assistant:**')) {
+  while (panel.content.widgets[activeCellIndex]?.model.toJSON().source?.toString().startsWith(AI_NAME)) {
     activeCellIndex = activeCellIndex - 1
     console.log('NoteChat: this is an AI Assistant reply, jump to previous cell for question, previous id : ', activeCellIndex)
     panel.content.activeCellIndex = activeCellIndex
@@ -251,13 +289,13 @@ const chatCellData = async (
   panel.content.activeCellIndex = activeCellIndex
 
   // 如果下方单元格中如果是AI回复内容，则替换原内容，否则插入新单元格
-  if (panel.content.widgets[activeCellIndex + 1]?.model.toJSON().source?.toString().startsWith('**AI Assistant:**')) {
-    // 下方单元格中含有**AI Assistant:**，则替换原内容
-    console.log('NoteChat: replace below md cell content containing **AI Assistant:**')
-    await replaceMdCellContentBelow(panel, responseText, '**AI Assistant:**\n\n', true)
+  if (panel.content.widgets[activeCellIndex + 1]?.model.toJSON().source?.toString().startsWith(AI_NAME)) {
+    // 下方单元格中含有AI_NAME，则替换原内容
+    console.log(`NoteChat: replace below md cell content containing ${AI_NAME}`)
+    await replaceMdCellContentBelow(panel, responseText, `${AI_NAME}\n\n`, true, true)
   } else {
     // 如果下方没有单元格或不含有AI回复标记，则插入新单元格
-    await insertNewMdCellBelow(panel, responseText, '**AI Assistant:**\n\n', true)
+    await insertNewMdCellBelow(panel, responseText, `${AI_NAME}\n\n`, true, true)
   }
 
   // 解锁is_chatting状态，用户可以继续提问
@@ -290,7 +328,8 @@ const getOrganizedCellContext = async (
     combinedOutput += '\n##########\n\n'
 
     // 单元格Input文本
-    const cellSourceText = cellModel.source?.toString() ?? ''
+    let cellSourceText = cellModel.source?.toString() ?? ''
+    cellSourceText = processMdCellString(cellSourceText, '', `${REF_NAME} || ${REF_NAME}s`)
 
     // 处理Markdown类型的单元格
     if (cellModel.cell_type === 'markdown') {
@@ -443,36 +482,56 @@ const insertNewMdCellBelow = async (
   panel: NotebookPanel,
   newText: string,
   heading: string = '',
+  ref: boolean = true,
   needRun: boolean = true
 ): Promise<void> => {
   NotebookActions.insertBelow(panel.content)
-  // 如果需要，可以进一步自定义新插入的单元格
+  // 新插入的单元格，要先从code转化为markdown
   const newCell = panel.content.activeCell
   if (newCell) {
-    newCell.model.sharedModel.setSource(heading + newText) // 将单元格的source设置为指定的内容
-    NotebookActions.changeCellType(panel.content, 'markdown') // 将单元格类型更改为 Markdown
+    // 将单元格类型更改为 Markdown，必须先变更，变更类型的时候id会变
+    if (newCell.model.type !== 'markdown') {
+      NotebookActions.changeCellType(panel.content, 'markdown')
+    }
+    // 当cell type从code变为markdown时，id会变，所以需要重新获取
+    const changedNewCell = panel.content.activeCell
+    //如果ref为true，则tailing输出指定ref格式，否则为空
+    const tailing = ref ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic;">${REF_NAME} || ${REF_NAME}s["${changedNewCell?.model.toJSON().id}"]</div>` : ''
+    // 将单元格的source设置为指定的内容
+    changedNewCell.model.sharedModel.setSource(heading + newText + tailing)
+    // 运行单元格
     if (needRun) {
-      NotebookActions.run(panel.content, panel.sessionContext)
-    } // 运行单元格
+      await NotebookActions.run(panel.content, panel.sessionContext)
+    }
   }
 }
 
-// 在当前活动单元格下方插入新的Markdown单元格，并执行，这样AI回复界面更美观
+// 置换下方Markdown单元格，并执行，这样AI回复界面更美观
 const replaceMdCellContentBelow = async (
   panel: NotebookPanel,
   newText: string,
   heading: string = '',
+  ref: boolean = true,
   needRun: boolean = true
 ): Promise<void> => {
   NotebookActions.selectBelow(panel.content)
   // 置换单元格内容
   const belowCell = panel.content.activeCell
   if (belowCell) {
-    belowCell.model.sharedModel.setSource(heading + newText) // 将单元格的source设置为指定的内容
-    NotebookActions.changeCellType(panel.content, 'markdown') // 将单元格类型更改为 Markdown
+    // 将单元格类型更改为 Markdown，必须先变更，变更类型的时候id会变
+    if (belowCell.model.type !== 'markdown') {
+      NotebookActions.changeCellType(panel.content, 'markdown')
+    }
+    // 当cell type从code变为markdown时，id会变，所以需要重新获取
+    const changedBelowCell = panel.content.activeCell
+    //如果ref为true，则tailing输出指定ref格式，否则为空
+    const tailing = ref ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic;">${REF_NAME} || ${REF_NAME}s["${changedBelowCell?.model.toJSON().id}"]</div>` : ''
+    // 将单元格的source设置为指定的内容
+    changedBelowCell.model.sharedModel.setSource(heading + newText + tailing) 
+    // 运行单元格
     if (needRun) {
-      NotebookActions.run(panel.content, panel.sessionContext)
-    } // 运行单元格
+      await NotebookActions.run(panel.content, panel.sessionContext)
+    }
   }
 }
 
@@ -481,6 +540,29 @@ const removeANSISequences = (str: string): string => {
   // eslint-disable-next-line no-control-regex
   const ansiEscapeRegex = /\u001b\[[0-9;]*m/g
   return str.replace(ansiEscapeRegex, '')
+}
+
+// 处理markdown cell的字符串
+const processMdCellString = (
+  cellString: string,
+  removeHeadString: string = '',
+  removeTailString: string = ''
+  ): string => {
+
+    let lines = cellString.split('\n')
+    
+    // 如果第一行含有removeHeadString，移除第一行
+    if (removeHeadString && lines.length > 0 && lines[0].includes(removeHeadString)) {
+      lines = lines.slice(1)
+    }
+    // 如果最后一行含有removeTailString，移除最后一行
+    if (removeTailString && lines.length > 0 && lines[lines.length - 1].includes(removeTailString)) {
+      lines = lines.slice(0, lines.length - 1)
+    }
+
+    // console.log('NoteChat: executed cell id: ', cell.model.toJSON().id)
+    
+    return lines.join('\n').trim()
 }
 
 // 自定义弹出通知界面，在toolbar的下方弹出
@@ -541,11 +623,11 @@ const chatCellDataRange = async (
   const runCellTypes = []
   for (let i = endIndex; i >= startIndex; i--) {
     const currentCellSource = panel.content.widgets[i]?.model.toJSON().source?.toString() ?? ''
-    if (currentCellSource.startsWith('**AI Assistant:**')) {
+    if (currentCellSource.startsWith(AI_NAME)) {
       continue
     } else {
       const nextCellSource = panel.content.widgets[i+1]?.model.toJSON().source?.toString() ?? ''
-      if (currentCellSource.startsWith('**User:**') || nextCellSource.startsWith('**AI Assistant:**')) {
+      if (currentCellSource.startsWith(USER_NAME) || nextCellSource.startsWith(AI_NAME)) {
         runCellTypes.push({'id': i, 'type': 'chat'})
       } else {
         runCellTypes.push({'id': i, 'type': 'normal'})
@@ -574,6 +656,45 @@ const chatCellDataRange = async (
   }
 
   console.log('NoteChat: End run cells with chatting')
+}
+
+// 刷新后要重新初始化panel，将notebook设定为非chatting状态，将所有markdown的信息放入kernel中
+const initializePanel = async (
+  panel: NotebookPanel | null
+): Promise<void> => {
+
+  // console.log('NoteChat: initialize panel id: ', panel.id)
+  // 如果刷新后，还有chatting状态，则解锁
+  if (panel?.model?.getMetadata('is_chatting')) {
+    panel?.model?.setMetadata('is_chatting', false)
+  }
+
+  // 如果panel中没有单元格，则不需要初始化
+  if (!panel || panel.content.widgets.length === 0) {
+    return
+  }
+  
+  // 初始化_refs作为一个空的dict变量
+  let codes = [`${REF_NAME}s = {}`]
+  for (let i = 0; i < panel.content.widgets.length; i++) {
+    const cell = panel.content.widgets[i]
+    // console.log('NoteChat: initialize panel, cell id: ', cell.model.toJSON().id)
+    
+    // 读取所有markdown的信息至kernel中
+    if (cell.model.type === 'markdown') {
+      const source = cell.model.toJSON().source?.toString() ?? ''
+      const processedSource = processMdCellString(source, AI_NAME, `${REF_NAME} || ${REF_NAME}s`)
+      codes.push(`${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`)
+    }
+  }
+  // 执行代码
+  panel.sessionContext.session?.kernel?.requestExecute({
+    code: codes.join('\n'),
+  })
+  // console.log('NoteChat: initialize panel, codes: ', codes.join('\n'))
+  // console.log('NoteChat: initialize panel, length: ', panel.content.widgets.length)
+
+
 }
 
 export default plugin
