@@ -754,6 +754,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
 
   // 初始化_refs作为一个空的dict变量
   const codes = [`${REF_NAME}s = {}`]
+  let lastRef = ''
   for (let i = 0; i < panel.content.widgets.length; i++) {
     const cell = panel.content.widgets[i]
     // console.log('NoteChat: initialize panel, cell id: ', cell.model.toJSON().id)
@@ -769,8 +770,14 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
       codes.push(
         `${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
       )
+      lastRef = `${REF_NAME} = """${processedSource}"""`
     }
   }
+  //如果lastRef不为空字符串，则加入codes中
+  if (lastRef) {
+    codes.push(lastRef)
+  }
+
   // 执行代码
   panel.sessionContext.session?.kernel?.requestExecute({
     code: codes.join('\n')
