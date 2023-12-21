@@ -11,7 +11,7 @@ import {
 } from '@jupyterlab/notebook'
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat'
 import { ServerConnection } from '@jupyterlab/services'
-import { reactIcon } from '@jupyterlab/ui-components'
+import { infoIcon, reactIcon } from '@jupyterlab/ui-components'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
@@ -49,8 +49,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
         .then(settings => {
           console.log('NoteChat: settings loaded', settings.composite)
 
+          let command
+
           /** Add command: chat cell with AI Assistant */
-          const command: string = 'jupyterlab-notechat:chat-cell-data'
+          command = 'jupyterlab-notechat:chat-cell-data'
           app.commands.addCommand(command, {
             label: 'Chat with AI Assistant',
             icon: reactIcon,
@@ -139,8 +141,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
           })
 
           /** Add command: chat cell data range with AI Assistant */
-          const command_range: string = 'jupyterlab-notechat:chat-cell-data-all'
-          app.commands.addCommand(command_range, {
+          command = 'jupyterlab-notechat:chat-cell-data-all'
+          app.commands.addCommand(command, {
             label: 'Run All Cells with AI Assistant',
             icon: reactIcon,
             execute: () => {
@@ -200,6 +202,31 @@ const plugin: JupyterFrontEndPlugin<void> = {
               })
             }
           })
+
+
+          /** 展示cell的序号和唯一编号 */
+          command = 'jupyterlab-notechat:show-cell-ref'
+          app.commands.addCommand(command, {
+            label: 'Show Active Cell ID for Reference',
+            icon: infoIcon,
+            execute: () => {
+              const currentPanel = notebookTracker.currentWidget
+              if (!currentPanel) {
+                return
+              }
+              return showCellRef(currentPanel)
+            }
+          })
+          // Add command to the palette
+          palette.addItem({ command, category: 'notechat' })
+          // Add hotkeys: Alt + C
+          app.commands.addKeyBinding({
+            command,
+            keys: ['Alt I'],
+            selector: '.jp-Notebook'
+          })
+
+
         })
         .catch(reason => {
           console.error(
@@ -655,19 +682,34 @@ const showCustomNotification = async (
 
   document.body.appendChild(notification)
 
-  // 设置点击通知本身，通知即消失
-  notification.onclick = () => {
+  let timeoutId: number | null = null;
+
+  const removeNotification = () => {
     if (document.body.contains(notification)) {
       document.body.removeChild(notification)
     }
   }
 
-  // 自动关闭延时
-  setTimeout(() => {
-    if (document.body.contains(notification)) {
-      document.body.removeChild(notification)
+  // 重新启动倒计时
+  const restartTimeout = () => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId)
     }
-  }, timeout)
+    timeoutId = window.setTimeout(removeNotification, timeout);
+  }
+
+  // 鼠标悬停时清除倒计时
+  notification.addEventListener('mouseenter', () => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId)
+    }
+  })
+
+  // 鼠标离开时重新开始倒计时
+  notification.addEventListener('mouseleave', restartTimeout)
+
+  // 开始初始倒计时
+  restartTimeout()
 }
 
 // 按照用户指定的cell id范围，运行之间所有的cell，自动识别需要AI Assistant的回复
@@ -784,6 +826,28 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
   })
   // console.log('NoteChat: initialize panel, codes: ', codes.join('\n'))
   // console.log('NoteChat: initialize panel, length: ', panel.content.widgets.length)
+}
+
+// 显示当前活动单元格的序号和唯一id
+const showCellRef = async (
+  panel: NotebookPanel | null
+): Promise<void> => {
+  if (!panel) {
+    return
+  }
+  const SequetialId = panel.content.activeCellIndex
+  const UniqueId = panel.content.activeCell?.model.toJSON().id
+
+  showCustomNotification(
+    `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId}`,
+    panel,
+    2000
+  )
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(`"${UniqueId}" || ${SequetialId}`)
+  }
+
 }
 
 export default plugin

@@ -14,6 +14,9 @@
           },
           {
             "command": "jupyterlab-notechat:chat-cell-data-all"
+          },
+          {
+            "command": "jupyterlab-notechat:show-cell-ref"
           }
         ]
       }
