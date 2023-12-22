@@ -182,6 +182,7 @@
         "arrowParens": "avoid",
         "endOfLine": "auto",
         "semi": false,
+        "printWidth": 800,
         "overrides": [
             {
                 "files": "package.json",
