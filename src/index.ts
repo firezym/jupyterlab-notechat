@@ -11,7 +11,14 @@ import {
 } from '@jupyterlab/notebook'
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat'
 import { ServerConnection } from '@jupyterlab/services'
-import { infoIcon, reactIcon } from '@jupyterlab/ui-components'
+import {
+  atomIconNoteChat,
+  infoIconNoteChat,
+  runAllIconNoteChat,
+  runAboveIconNoteChat,
+  runBelowIconNoteChat,
+  runSelectedIconNoteChat 
+} from './icon'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
@@ -55,7 +62,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           command = 'jupyterlab-notechat:chat-cell-data'
           app.commands.addCommand(command, {
             label: 'Chat with AI Assistant',
-            icon: reactIcon,
+            icon: atomIconNoteChat,
             execute: () => {
               const currentPanel = notebookTracker.currentWidget
               if (!currentPanel) {
@@ -98,22 +105,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
             // 如果没有按钮，则创建一个
             button = new RotatingToolbarButton(panel, settings, {
               label: 'NoteChat',
-              icon: reactIcon,
+              icon: atomIconNoteChat,
+              iconClass: 'show-cell-ref',
               tooltip: 'Chat with AI Assistant'
             })
-            console.log(
-              'NoteChat: new chatButton CREATED, id: ',
-              button.creationTimestamp
-            )
+            // console.log('NoteChat: new chatButton CREATED, id: ', button.creationTimestamp)
             const toolbar = panel.toolbar
             toolbar.insertItem(11, 'chatButton', button)
             // 将 panel 与按钮关联
             BUTTON_MAP.set(panel, button)
 
-            console.log(
-              'NoteChat: panel and chatButton binding BUTTON_MAP size: ',
-              BUTTON_MAP.size
-            )
+            // console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
 
             // 监听 panel 的关闭或销毁事件，防止内存泄露
             panel.disposed.connect(() => {
@@ -140,21 +142,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
             // console.log('notechat: model', panel.model)
           })
 
-          /** Add command: chat cell data range with AI Assistant */
+          /** Add command: chat cell data range with AI Assistant: Run All */
           command = 'jupyterlab-notechat:chat-cell-data-all'
           app.commands.addCommand(command, {
             label: 'Run All Cells with AI Assistant',
-            icon: reactIcon,
+            icon: runAllIconNoteChat,
             execute: () => {
               const currentPanel = notebookTracker.currentWidget
               if (!currentPanel) {
                 return
               }
-              console.log(
-                'NoteChat: command triggered settings: ',
-                settings.composite
-              )
-              return chatCellDataRange(currentPanel, settings, null, null)
+              return chatCellDataRange(currentPanel, settings, null, null, null)
             }
           })
           // Add command to the palette
@@ -162,7 +160,86 @@ const plugin: JupyterFrontEndPlugin<void> = {
           // Add hotkeys: Alt + C
           app.commands.addKeyBinding({
             command,
-            keys: ['Alt A'],
+            keys: ['Alt R', 'Alt T'],
+            selector: '.jp-Notebook'
+          })
+
+          /** Add command: chat cell data range with AI Assistant: Run All Above */
+          command = 'jupyterlab-notechat:chat-cell-data-above'
+          app.commands.addCommand(command, {
+            label: 'Run Above Cells with AI Assistant',
+            icon: runAboveIconNoteChat,
+            execute: () => {
+              const currentPanel = notebookTracker.currentWidget
+              if (!currentPanel) {
+                return
+              }
+              const endIndex = currentPanel.content.activeCellIndex
+              return chatCellDataRange(currentPanel, settings, null, endIndex, null)
+            }
+          })
+          // Add command to the palette
+          palette.addItem({ command, category: 'notechat' })
+          // Add hotkeys: Alt + C
+          app.commands.addKeyBinding({
+            command,
+            keys: ['Alt R', 'Alt B'],
+            selector: '.jp-Notebook'
+          })
+
+          /** Add command: chat cell data range with AI Assistant: Run All Below */
+          command = 'jupyterlab-notechat:chat-cell-data-below'
+          app.commands.addCommand(command, {
+            label: 'Run Below Cells with AI Assistant',
+            icon: runBelowIconNoteChat,
+            execute: () => {
+              const currentPanel = notebookTracker.currentWidget
+              if (!currentPanel) {
+                return
+              }
+              const startIndex = currentPanel.content.activeCellIndex
+              return chatCellDataRange(currentPanel, settings, startIndex, null, null)
+            }
+          })
+          // Add command to the palette
+          palette.addItem({ command, category: 'notechat' })
+          // Add hotkeys: Alt + C
+          app.commands.addKeyBinding({
+            command,
+            keys: ['Alt R', 'Alt F'],
+            selector: '.jp-Notebook'
+          })
+
+          /** Add command: chat cell data range with AI Assistant: Run All Selected */
+          command = 'jupyterlab-notechat:chat-cell-data-selected'
+          app.commands.addCommand(command, {
+            label: 'Run Selected Cells with AI Assistant',
+            icon: runSelectedIconNoteChat,
+            execute: () => {
+              const currentPanel = notebookTracker.currentWidget
+              if (!currentPanel) {
+                return
+              }
+              const selectedCellIdArr = []
+              for (let i = 0; i < currentPanel.content.widgets.length; i++) {
+                const cell = currentPanel.content.widgets[i]
+                if (currentPanel.content.isSelectedOrActive(cell)) {
+                  selectedCellIdArr.push(i)
+                }
+              }
+              console.log('NoteChat: selected cells index: ', selectedCellIdArr)
+              if (selectedCellIdArr.length === 0) {
+                return
+              }
+              return chatCellDataRange(currentPanel, settings, null, null, selectedCellIdArr)
+            }
+          })
+          // Add command to the palette
+          palette.addItem({ command, category: 'notechat' })
+          // Add hotkeys: Alt + C
+          app.commands.addKeyBinding({
+            command,
+            keys: ['Alt R', 'Alt S'],
             selector: '.jp-Notebook'
           })
 
@@ -207,8 +284,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
           /** 展示cell的序号和唯一编号 */
           command = 'jupyterlab-notechat:show-cell-ref'
           app.commands.addCommand(command, {
-            label: 'Show Active Cell ID for Reference',
-            icon: infoIcon,
+            label: 'Show & Copy Cell ID for Ref',
+            icon: infoIconNoteChat,
+            iconClass: 'show-cell-ref',
             execute: () => {
               const currentPanel = notebookTracker.currentWidget
               if (!currentPanel) {
@@ -222,7 +300,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           // Add hotkeys: Alt + C
           app.commands.addKeyBinding({
             command,
-            keys: ['Alt I'],
+            keys: ['Alt Q'],
             selector: '.jp-Notebook'
           })
 
@@ -583,7 +661,7 @@ const insertNewMdCellBelow = async (
     const changedNewCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
     const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic;">${REF_NAME} || ${REF_NAME}s["${changedNewCell?.model.toJSON()
+      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${REF_NAME} || ${REF_NAME}s["${changedNewCell?.model.toJSON()
           .id}"]</div>`
       : ''
     // 将单元格的source设置为指定的内容
@@ -615,7 +693,7 @@ const replaceMdCellContentBelow = async (
     const changedBelowCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
     const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic;">${REF_NAME} || ${REF_NAME}s["${changedBelowCell?.model.toJSON()
+      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${REF_NAME} || ${REF_NAME}s["${changedBelowCell?.model.toJSON()
           .id}"]</div>`
       : ''
     // 将单元格的source设置为指定的内容
@@ -717,7 +795,8 @@ const chatCellDataRange = async (
   panel: NotebookPanel | null,
   userSettings: ISettingRegistry.ISettings | null,
   startIndex: number | null,
-  endIndex: number | null
+  endIndex: number | null,
+  selectedCellIdArr: number[] | null = null
 ): Promise<void> => {
   if (!panel || !userSettings) {
     return
@@ -732,22 +811,28 @@ const chatCellDataRange = async (
   console.log('NoteChat: START run cells with chatting')
   const maxIndex = panel.content.widgets.length - 1
   startIndex = startIndex ?? 0
+  // 如果所选的范围中，第一个单元格正好为AI回复，则向前移动一个
+  const startCellSource = panel.content.widgets[startIndex]?.model.toJSON().source?.toString() ?? ''
+  if (startCellSource.startsWith(AI_NAME)) {
+    startIndex = Math.max(startIndex - 1, 0)
+  }
   endIndex = endIndex ?? maxIndex
 
   // 先找到需要运行的cell，然后再一个个运行，从后向前找更方便，这样有多个Assistant的回复，就可以顺利跳开
   const runCellTypes = []
   for (let i = endIndex; i >= startIndex; i--) {
-    const currentCellSource =
-      panel.content.widgets[i]?.model.toJSON().source?.toString() ?? ''
+
+    // 选择模式，只运行范围中选中的单元格，所以selectedArray不为空，且该id不在选择范围内，则跳过
+    if (selectedCellIdArr && !selectedCellIdArr.includes(i)) {
+      continue
+    }
+
+    const currentCellSource = panel.content.widgets[i]?.model.toJSON().source?.toString() ?? ''
     if (currentCellSource.startsWith(AI_NAME)) {
       continue
     } else {
-      const nextCellSource =
-        panel.content.widgets[i + 1]?.model.toJSON().source?.toString() ?? ''
-      if (
-        currentCellSource.startsWith(USER_NAME) ||
-        nextCellSource.startsWith(AI_NAME)
-      ) {
+      const nextCellSource = panel.content.widgets[i + 1]?.model.toJSON().source?.toString() ?? ''
+      if (currentCellSource.startsWith(USER_NAME) || nextCellSource.startsWith(AI_NAME)) {
         runCellTypes.push({ id: i, type: 'chat' })
       } else {
         runCellTypes.push({ id: i, type: 'normal' })
@@ -835,9 +920,9 @@ const showCellRef = async (
   if (!panel) {
     return
   }
-  const SequetialId = panel.content.activeCellIndex
   const UniqueId = panel.content.activeCell?.model.toJSON().id
-
+  const SequetialId = panel.content.activeCellIndex
+  
   showCustomNotification(
     `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId}`,
     panel,
@@ -845,7 +930,7 @@ const showCellRef = async (
   )
 
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(`"${UniqueId}" || ${SequetialId}`)
+    navigator.clipboard.writeText(`_ref || _refs["${UniqueId}"] || ${SequetialId}`)
   }
 
 }
