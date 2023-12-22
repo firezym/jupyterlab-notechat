@@ -23,11 +23,11 @@
 .notification {
   position: fixed; /* 使用 fixed 以确保通知在视窗中固定 */
   z-index: 1000; /* 确保在其他元素上方 */
-  background-color: rgba(0 0 0 / 80%); /* 黑色半透明背景 */
+  background-color: rgba(0 0 255 / 100%); /* 蓝色背景 */
   color: #fff; /* 文本颜色 */
   padding: 10px;
   border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0 0 0 / 20%);
+  box-shadow: 0 2px 4px rgba(0 0 255 / 20%);
   left: 50%; /* 水平居中 */
   top: 50%; /* 垂直居中 */
   transform: translateX(-50%);
