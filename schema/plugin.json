@@ -13,10 +13,25 @@
             "command": "jupyterlab-notechat:chat-cell-data"
           },
           {
-            "command": "jupyterlab-notechat:chat-cell-data-all"
+            "type": "separator"
           },
           {
             "command": "jupyterlab-notechat:show-cell-ref"
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "command": "jupyterlab-notechat:chat-cell-data-all"
+          },
+          {
+            "command": "jupyterlab-notechat:chat-cell-data-above"
+          },
+          {
+            "command": "jupyterlab-notechat:chat-cell-data-below"
+          },
+          {
+            "command": "jupyterlab-notechat:chat-cell-data-selected"
           }
         ]
       }
