@@ -265,17 +265,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
             })
 
             if (panel) {
-              // 去掉含有AI_NAME一整行的内容，因为包括了一些不必要的参数的信息
+              // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
               const source = cell.model.toJSON().source?.toString() ?? ''
               const processedSource = processCellSourceString(
-                source,
-                AI_NAME,
-                `${REF_NAME} || ${REF_NAME}s`
+                source, [AI_NAME, USER_NAME], [`${REF_NAME} || ${REF_NAME}s`]
               )
               panel.sessionContext.session?.kernel?.requestExecute({
-                code: `${REF_NAME} = """${processedSource}"""\n${REF_NAME}s["${
-                  cell.model.toJSON().id
-                }"] = """${processedSource}"""`
+                code: `${REF_NAME} = """${processedSource}"""\n${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
               })
             }
           })
@@ -488,9 +484,7 @@ const getOrganizedCellContext = async (
     // 单元格Input文本
     let cellSourceText = cellModel.source?.toString() ?? ''
     cellSourceText = processCellSourceString(
-      cellSourceText,
-      '',
-      `${REF_NAME} || ${REF_NAME}s`
+      cellSourceText, [], [`${REF_NAME} || ${REF_NAME}s`]
     )
 
     // 处理Markdown类型的单元格
@@ -712,35 +706,28 @@ const removeANSISequences = (str: string): string => {
   return str.replace(ansiEscapeRegex, '')
 }
 
-// 处理markdown cell的字符串
+// 处理 Markdown 单元格的字符串，根据指定的字符串数组移除首尾行
 const processCellSourceString = (
   cellString: string,
-  removeHeadString: string = '',
-  removeTailString: string = ''
+  removeHeadStringArr: string[] = [], // 默认为空数组
+  removeTailStringArr: string[] = []  // 默认为空数组
 ): string => {
-  let lines = cellString.split('\n')
+  let lines = cellString.split('\n');
 
-  // 如果第一行含有removeHeadString，移除第一行
-  if (
-    removeHeadString &&
-    lines.length > 0 &&
-    lines[0].includes(removeHeadString)
-  ) {
-    lines = lines.slice(1)
-  }
-  // 如果最后一行含有removeTailString，移除最后一行
-  if (
-    removeTailString &&
-    lines.length > 0 &&
-    lines[lines.length - 1].includes(removeTailString)
-  ) {
-    lines = lines.slice(0, lines.length - 1)
+  // 如果第一行包含 removeHeadStringArr 中的任何字符串，则移除第一行
+  if (lines.length > 0 && removeHeadStringArr.some(headString => lines[0].includes(headString))) {
+    lines = lines.slice(1);
   }
 
-  // console.log('NoteChat: executed cell id: ', cell.model.toJSON().id)
+  // 如果最后一行包含 removeTailStringArr 中的任何字符串，则移除最后一行
+  if (lines.length > 0 && removeTailStringArr.some(tailString => lines[lines.length - 1].includes(tailString))) {
+    lines = lines.slice(0, -1);
+  }
 
-  return lines.join('\n').trim()
+  // 返回处理后的字符串
+  return lines.join('\n').trim();
 }
+
 
 // 自定义弹出通知界面，在toolbar的下方弹出
 const showCustomNotification = async (
@@ -890,9 +877,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // if (cell.model.type === 'markdown') {
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = processCellSourceString(
-      source,
-      AI_NAME,
-      `${REF_NAME} || ${REF_NAME}s`
+      source, [AI_NAME, USER_NAME], [`${REF_NAME} || ${REF_NAME}s`]
     )
     codes.push(
       `${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
