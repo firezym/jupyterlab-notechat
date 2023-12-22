@@ -345,7 +345,7 @@ class RotatingToolbarButton extends ToolbarButton {
     // console.log('NoteChat: chatButton START rotating, id: ', this.creationTimestamp)
     const iconElement = this.node.querySelector('[class*="icon"]')
     if (iconElement) {
-      iconElement.classList.add('rotate')
+      iconElement.classList.add('rotate', 'rotate-color')
     }
   }
 
@@ -354,7 +354,7 @@ class RotatingToolbarButton extends ToolbarButton {
     // console.log('NoteChat: chatButton STOP rotating, id: ', this.creationTimestamp)
     const iconElement = this.node.querySelector('[class*="icon"]')
     if (iconElement) {
-      iconElement.classList.remove('rotate')
+      iconElement.classList.remove('rotate', 'rotate-color')
     }
   }
 

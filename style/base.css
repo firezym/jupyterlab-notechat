@@ -5,8 +5,17 @@
 */
 
 /* Rotating Icon */
+
+.notechat-color {
+  fill: blue; /* 默认主题颜色 */
+}
+
 .rotate {
   animation: rotation 2s infinite linear;
+}
+
+.rotate-color .notechat-color {
+  fill: cyan; /* 旋转颜色 */
 }
 
 @keyframes rotation {
@@ -23,7 +32,7 @@
 .notification {
   position: fixed; /* 使用 fixed 以确保通知在视窗中固定 */
   z-index: 1000; /* 确保在其他元素上方 */
-  background-color: rgba(0 0 255 / 100%); /* 蓝色背景 */
+  background-color: rgba(0 0 255 / 80%); /* 蓝色背景 */
   color: #fff; /* 文本颜色 */
   padding: 10px;
   border-radius: 5px;
@@ -32,3 +41,4 @@
   top: 50%; /* 垂直居中 */
   transform: translateX(-50%);
 }
+
