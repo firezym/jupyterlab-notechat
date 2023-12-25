@@ -43,6 +43,11 @@
   transform: translateX(-50%);
 }
 
+.notification::selection {
+  background-color: #ffcc00; /* 选中区域的背景色，例如亮黄色 */
+  color: #000; /* 选中文本的颜色，例如黑色 */
+}
+
 .notification-close {
   color: #fff; /* 文本颜色 */
   position: absolute;
