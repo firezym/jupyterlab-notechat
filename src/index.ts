@@ -27,17 +27,17 @@ import { showCustomNotification } from './notification'
  * Initialization data for the jupyterlab-notechat extension.
  */
 
-const DEFAULT_PROMPT =
-  "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so."
-
 const PLUGIN_ID = 'jupyterlab-notechat:plugin'
 
 // 用于存储每个NotebookPanel对应的按钮，暂时这么解决
 const BUTTON_MAP = new Map()
 
-const AI_NAME = '**AI Assistant:**'
-const USER_NAME = '**User:**'
-const REF_NAME = '_ref'
+const SETTINGS = {
+  'AI_NAME': '**AI Assistant:**',
+  'USER_NAME': '**User:**',
+  'REF_NAME': '_ref',
+  'DEFAULT_PROMPT': "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so."
+}
 
 // 插件定义
 const plugin: JupyterFrontEndPlugin<void> = {
@@ -397,7 +397,7 @@ const chatCellData = async (
   const numPrevCells =
     (userSettings.get('num_prev_cells').composite as number) || 2
   const userSettingsData = {
-    prompt: (userSettings.get('prompt').composite as string) || DEFAULT_PROMPT
+    prompt: (userSettings.get('prompt').composite as string) || SETTINGS.DEFAULT_PROMPT
   }
 
   // 获取提问单元格的id
@@ -408,7 +408,7 @@ const chatCellData = async (
     panel.content.widgets[activeCellIndex]?.model
       .toJSON()
       .source?.toString()
-      .startsWith(AI_NAME)
+      .startsWith(SETTINGS.AI_NAME)
   ) {
     activeCellIndex = activeCellIndex - 1
     console.log(
@@ -434,14 +434,14 @@ const chatCellData = async (
     panel.content.widgets[activeCellIndex + 1]?.model
       .toJSON()
       .source?.toString()
-      .startsWith(AI_NAME)
+      .startsWith(SETTINGS.AI_NAME)
   ) {
     // 下方单元格中含有AI_NAME，则替换原内容
-    console.log(`NoteChat: replace below md cell content containing ${AI_NAME}`)
+    console.log(`NoteChat: replace below md cell content containing ${SETTINGS.AI_NAME}`)
     await replaceMdCellContentBelow(
       panel,
       responseText,
-      `${AI_NAME}\n\n`,
+      `${SETTINGS.AI_NAME}\n\n`,
       true,
       true
     )
@@ -450,7 +450,7 @@ const chatCellData = async (
     await insertNewMdCellBelow(
       panel,
       responseText,
-      `${AI_NAME}\n\n`,
+      `${SETTINGS.AI_NAME}\n\n`,
       true,
       true
     )
@@ -488,7 +488,7 @@ const getOrganizedCellContext = async (
     // 单元格Input文本
     let cellSourceText = cellModel.source?.toString() ?? ''
     cellSourceText = processCellSourceString(
-      cellSourceText, [], [`${REF_NAME} || ${REF_NAME}s`]
+      cellSourceText, [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
     )
 
     // 处理Markdown类型的单元格
@@ -569,7 +569,7 @@ const getChatCompletions = async (
   userSettingsData: any
 ): Promise<string> => {
   const defaultSettings = {
-    prompt: DEFAULT_PROMPT,
+    prompt: SETTINGS.DEFAULT_PROMPT,
     model: 'gpt-3.5-turbo',
     response_format: 'text',
     temperature: 0.5,
@@ -659,7 +659,7 @@ const insertNewMdCellBelow = async (
     const changedNewCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
     const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${REF_NAME} || ${REF_NAME}s["${changedNewCell?.model.toJSON()
+      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s["${changedNewCell?.model.toJSON()
           .id}"]</div>`
       : ''
     // 将单元格的source设置为指定的内容
@@ -691,7 +691,7 @@ const replaceMdCellContentBelow = async (
     const changedBelowCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
     const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${REF_NAME} || ${REF_NAME}s["${changedBelowCell?.model.toJSON()
+      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s["${changedBelowCell?.model.toJSON()
           .id}"]</div>`
       : ''
     // 将单元格的source设置为指定的内容
@@ -755,7 +755,7 @@ const chatCellDataRange = async (
   startIndex = startIndex ?? 0
   // 如果所选的范围中，第一个单元格正好为AI回复，则向前移动一个
   const startCellSource = panel.content.widgets[startIndex]?.model.toJSON().source?.toString() ?? ''
-  if (startCellSource.startsWith(AI_NAME)) {
+  if (startCellSource.startsWith(SETTINGS.AI_NAME)) {
     startIndex = Math.max(startIndex - 1, 0)
   }
   endIndex = endIndex ?? maxIndex
@@ -770,11 +770,11 @@ const chatCellDataRange = async (
     }
 
     const currentCellSource = panel.content.widgets[i]?.model.toJSON().source?.toString() ?? ''
-    if (currentCellSource.startsWith(AI_NAME)) {
+    if (currentCellSource.startsWith(SETTINGS.AI_NAME)) {
       continue
     } else {
       const nextCellSource = panel.content.widgets[i + 1]?.model.toJSON().source?.toString() ?? ''
-      if (currentCellSource.startsWith(USER_NAME) || nextCellSource.startsWith(AI_NAME)) {
+      if (currentCellSource.startsWith(SETTINGS.USER_NAME) || nextCellSource.startsWith(SETTINGS.AI_NAME)) {
         runCellTypes.push({ id: i, type: 'chat' })
       } else {
         runCellTypes.push({ id: i, type: 'normal' })
@@ -822,7 +822,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
   }
 
   // 初始化_refs作为一个空的dict变量
-  const codes = [`${REF_NAME}s = {}`]
+  const codes = [`${SETTINGS.REF_NAME}s = {}`]
   let lastRef = ''
   for (let i = 0; i < panel.content.widgets.length; i++) {
     const cell = panel.content.widgets[i]
@@ -832,12 +832,12 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // if (cell.model.type === 'markdown') {
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = processCellSourceString(
-      source, [AI_NAME, USER_NAME], [`${REF_NAME} || ${REF_NAME}s`]
+      source, [SETTINGS.AI_NAME, SETTINGS.USER_NAME], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
     )
     codes.push(
-      `${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+      `${SETTINGS.REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
     )
-    lastRef = `${REF_NAME} = """${processedSource}"""`
+    lastRef = `${SETTINGS.REF_NAME} = """${processedSource}"""`
     // }
   }
   //如果lastRef不为空字符串，则加入codes中
@@ -926,10 +926,10 @@ function sendOutputToKernel(
     // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = processCellSourceString(
-      source, [AI_NAME, USER_NAME], [`${REF_NAME} || ${REF_NAME}s`]
+      source, [SETTINGS.AI_NAME, SETTINGS.USER_NAME], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
     )
     panel.sessionContext.session?.kernel?.requestExecute({
-      code: `${REF_NAME} = """${processedSource}"""\n${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+      code: `${SETTINGS.REF_NAME} = """${processedSource}"""\n${SETTINGS.REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
     })
   }
 }
