@@ -19,7 +19,8 @@ import {
   runAllIconNoteChat,
   runAboveIconNoteChat,
   runBelowIconNoteChat,
-  runSelectedIconNoteChat 
+  runSelectedIconNoteChat,
+  helpIconNoteChat
 } from './icon'
 import { showCustomNotification } from './notification'
 
@@ -36,7 +37,9 @@ const SETTINGS = {
   'AI_NAME': '**AI Assistant:**',
   'USER_NAME': '**User:**',
   'REF_NAME': '_ref',
-  'DEFAULT_PROMPT': "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so."
+  'DEFAULT_PROMPT': "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so.",
+  'HELP': "How to Use NoteChat<br><br><br><br><br><br>"
+
 }
 
 // 插件定义
@@ -98,6 +101,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           /** Add command: 展示cell的序号和唯一编号 */
           addShowCellRefCommand(app, palette, notebookTracker, settings)
+
+          /** Add command: 添加帮助通知 */
+          addHelpCommand(app, palette, notebookTracker, settings)
 
           /** 绑定函数：将cell执行的最新结果，放入kernel中，方便notebook代码使用 */
           NotebookActions.executed.connect((sender, args) => {
@@ -280,6 +286,34 @@ function addChatCellDataSelectedCommand(
     })
 }
 
+/** Add command: Help Notification */
+function addHelpCommand(
+  app: JupyterFrontEnd,
+  palette: ICommandPalette,
+  notebookTracker: INotebookTracker,
+  settings: ISettingRegistry.ISettings) {
+    const command = 'jupyterlab-notechat:help'
+    app.commands.addCommand(command, {
+      label: 'Help: How to Use NoteChat',
+      icon: helpIconNoteChat,
+      execute: () => {
+        const currentPanel = notebookTracker.currentWidget
+        if (!currentPanel) {
+          return
+        }
+        showCustomNotification(SETTINGS.HELP, currentPanel, 2000)
+      }
+    })
+    // Add command to the palette
+    palette.addItem({ command, category: 'notechat' })
+    // Add hotkeys: Alt + C
+    app.commands.addKeyBinding({
+      command,
+      keys: ['Alt H'],
+      selector: '.jp-Notebook'
+    })
+}
+
 /** 将button和panel绑定起来 */
 function addButtonWidgetToPanel(panel: NotebookPanel, settings: ISettingRegistry.ISettings) {
   let button = BUTTON_MAP.get(panel)
@@ -364,8 +398,7 @@ class RotatingToolbarButton extends ToolbarButton {
     if (this.panel?.model?.getMetadata('is_chatting')) {
       showCustomNotification(
         'Please wait a moment, the AI Assistant is responding...',
-        this.panel,
-        2000
+        this.panel, 2000
       )
       return
     }
@@ -746,8 +779,7 @@ const chatCellDataRange = async (
 
   showCustomNotification(
     'Start running cells with AI Assistant, please do not add or delete any cells during running...',
-    panel,
-    2000
+    panel, 2000
   )
 
   console.log('NoteChat: START run cells with chatting')
@@ -894,8 +926,7 @@ const showCellRef = async (
   
   showCustomNotification(
     `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId}`,
-    panel,
-    2000
+    panel, 2000
   )
 
   if (navigator.clipboard) {

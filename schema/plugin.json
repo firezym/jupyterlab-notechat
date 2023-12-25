@@ -32,6 +32,12 @@
           },
           {
             "command": "jupyterlab-notechat:chat-cell-data-selected"
+          },
+          {
+            "type": "separator"
+          },
+          {
+            "command": "jupyterlab-notechat:help"
           }
         ]
       }
