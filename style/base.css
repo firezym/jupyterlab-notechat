@@ -32,13 +32,25 @@
 .notification {
   position: fixed; /* 使用 fixed 以确保通知在视窗中固定 */
   z-index: 1000; /* 确保在其他元素上方 */
-  background-color: rgba(0 0 255 / 80%); /* 蓝色背景 */
+  background-color: rgba(0 0 255 / 100%); /* 蓝色背景 */
   color: #fff; /* 文本颜色 */
   padding: 10px;
+  padding-right: 30px; /* 为通知添加右侧内边距，防止文本覆盖关闭按钮 */
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0 0 255 / 20%);
   left: 50%; /* 水平居中 */
   top: 50%; /* 垂直居中 */
   transform: translateX(-50%);
+}
+
+.notification-close {
+  color: #fff; /* 文本颜色 */
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
 }
 
