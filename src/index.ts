@@ -20,7 +20,8 @@ import {
   runAboveIconNoteChat,
   runBelowIconNoteChat,
   runSelectedIconNoteChat,
-  helpIconNoteChat
+  helpIconNoteChat,
+  addUserCellIconNoteChat
 } from './icon'
 import { showCustomNotification } from './notification'
 
@@ -104,6 +105,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           /** Add command: 添加帮助通知 */
           addHelpCommand(app, palette, notebookTracker, settings)
+
+          /** Add command: 添加用户对话框 */
+          addUserCellCommand(app, palette, notebookTracker, settings)
 
           /** 绑定函数：将cell执行的最新结果，放入kernel中，方便notebook代码使用 */
           NotebookActions.executed.connect((sender, args) => {
@@ -310,6 +314,34 @@ function addHelpCommand(
     app.commands.addKeyBinding({
       command,
       keys: ['Alt H'],
+      selector: '.jp-Notebook'
+    })
+}
+
+/** Add command: 添加用户对话框 */
+function addUserCellCommand(
+  app: JupyterFrontEnd,
+  palette: ICommandPalette,
+  notebookTracker: INotebookTracker,
+  settings: ISettingRegistry.ISettings) {
+    const command = 'jupyterlab-notechat:add-user-cell'
+    app.commands.addCommand(command, {
+      label: 'Add a User Chat Cell Below',
+      icon: addUserCellIconNoteChat,
+      execute: () => {
+        const currentPanel = notebookTracker.currentWidget
+        if (!currentPanel) {
+          return
+        }
+        insertNewMdCellBelow(currentPanel, '', `${SETTINGS.USER_NAME}\n\n`, false, false)
+      }
+    })
+    // Add command to the palette
+    palette.addItem({ command, category: 'notechat' })
+    // Add hotkeys: Alt + C
+    app.commands.addKeyBinding({
+      command,
+      keys: ['Alt U'],
       selector: '.jp-Notebook'
     })
 }

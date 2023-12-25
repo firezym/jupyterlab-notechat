@@ -22,6 +22,12 @@
             "type": "separator"
           },
           {
+            "command": "jupyterlab-notechat:add-user-cell"
+          },
+          {
+            "type": "separator"
+          },
+          {
             "command": "jupyterlab-notechat:chat-cell-data-all"
           },
           {
