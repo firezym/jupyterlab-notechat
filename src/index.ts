@@ -7,8 +7,10 @@ import { URLExt } from '@jupyterlab/coreutils'
 import {
   INotebookTracker,
   NotebookPanel,
-  NotebookActions
+  NotebookActions,
+  Notebook
 } from '@jupyterlab/notebook'
+import { Cell } from '@jupyterlab/cells'
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat'
 import { ServerConnection } from '@jupyterlab/services'
 import {
@@ -62,40 +64,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
           // Add a toolbar button
           notebookTracker.widgetAdded.connect((tracker, panel) => {
-            let button = BUTTON_MAP.get(panel)
-            if (button) {
-              console.log(
-                'NoteChat: chatButton already on toolbar, id: ',
-                button.creationTimestamp
-              )
-              return
-            }
-            // 如果没有按钮，则创建一个
-            button = new RotatingToolbarButton(panel, settings, {
-              label: 'NoteChat',
-              icon: atomIconNoteChat,
-              iconClass: 'show-cell-ref',
-              tooltip: 'Chat with AI Assistant'
-            })
-            // console.log('NoteChat: new chatButton CREATED, id: ', button.creationTimestamp)
-            const toolbar = panel.toolbar
-            toolbar.insertItem(11, 'chatButton', button)
-            // 将 panel 与按钮关联
-            BUTTON_MAP.set(panel, button)
 
-            // console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
-
-            // 监听 panel 的关闭或销毁事件，防止内存泄露
-            panel.disposed.connect(() => {
-              // 当 panel 被销毁时，从 Map 中移除它的引用
-              BUTTON_MAP.delete(panel)
-              console.log(
-                'NoteChat: panel and chatButton binding BUTTON_MAP size: ',
-                BUTTON_MAP.size
-              )
-            })
+            /** 将button和panel绑定起来 */
+            addButtonWidgetToPanel(panel, settings)
 
             // 初始化panel完成后，执行自定义的初始化
+            // 刷新后要重新初始化panel，将notebook设定为非chatting状态，将所有markdown的信息放入kernel中
             panel.sessionContext.ready.then(() => {
               initializePanel(panel)
             })
@@ -119,45 +93,16 @@ const plugin: JupyterFrontEndPlugin<void> = {
           /** Add command: chat cell data range with AI Assistant: Run All Below */
           addChatCellDataBelowCommand(app, palette, notebookTracker, settings)
 
-
           /** Add command: chat cell data range with AI Assistant: Run All Selected */
           addChatCellDataSelectedCommand(app, palette, notebookTracker, settings)
 
-          /** 将markdown执行的最新结果，放入kernel中，方便notebook代码使用 */
-          NotebookActions.executed.connect((sender, args) => {
-            const notebook = args.notebook
-            const cell = args.cell
-
-            console.log(
-              'NoteChat: executed cell & id: ',
-              cell.model.toJSON().source?.toString(),
-              '\nid: ',
-              cell.model.toJSON().id
-            )
-
-            // if (cell.model.type !== 'markdown') {
-            //   return
-            // }
-
-            // 查找与 executedNotebook 匹配的 NotebookPanel
-            const panel = notebookTracker.find(notebookPanel => {
-              return notebookPanel.content === notebook
-            })
-
-            if (panel) {
-              // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
-              const source = cell.model.toJSON().source?.toString() ?? ''
-              const processedSource = processCellSourceString(
-                source, [AI_NAME, USER_NAME], [`${REF_NAME} || ${REF_NAME}s`]
-              )
-              panel.sessionContext.session?.kernel?.requestExecute({
-                code: `${REF_NAME} = """${processedSource}"""\n${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
-              })
-            }
-          })
-
           /** Add command: 展示cell的序号和唯一编号 */
           addShowCellRefCommand(app, palette, notebookTracker, settings)
+
+          /** 绑定函数：将cell执行的最新结果，放入kernel中，方便notebook代码使用 */
+          NotebookActions.executed.connect((sender, args) => {
+            sendOutputToKernel(notebookTracker, sender, args)
+          })
 
         })
         .catch(reason => {
@@ -335,6 +280,41 @@ function addChatCellDataSelectedCommand(
     })
 }
 
+/** 将button和panel绑定起来 */
+function addButtonWidgetToPanel(panel: NotebookPanel, settings: ISettingRegistry.ISettings) {
+  let button = BUTTON_MAP.get(panel)
+  if (button) {
+    console.log(
+      'NoteChat: chatButton already on toolbar, id: ',
+      button.creationTimestamp
+    )
+    return
+  }
+  // 如果没有按钮，则创建一个
+  button = new RotatingToolbarButton(panel, settings, {
+    label: 'NoteChat',
+    icon: atomIconNoteChat,
+    iconClass: 'show-cell-ref',
+    tooltip: 'Chat with AI Assistant'
+  })
+  // console.log('NoteChat: new chatButton CREATED, id: ', button.creationTimestamp)
+  const toolbar = panel.toolbar
+  toolbar.insertItem(11, 'chatButton', button)
+  // 将 panel 与按钮关联
+  BUTTON_MAP.set(panel, button)
+
+  // console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
+
+  // 监听 panel 的关闭或销毁事件，防止内存泄露
+  panel.disposed.connect(() => {
+    // 当 panel 被销毁时，从 Map 中移除它的引用
+    BUTTON_MAP.delete(panel)
+    console.log(
+      'NoteChat: panel and chatButton binding BUTTON_MAP size: ',
+      BUTTON_MAP.size
+    )
+  })
+}
 
 // 按钮定义，按钮维护转动和非转动状态，所以一般chatCellData都从按钮组件入口调用
 class RotatingToolbarButton extends ToolbarButton {
@@ -923,5 +903,36 @@ const showCellRef = async (
   }
 
 }
+
+function sendOutputToKernel(
+  notebookTracker: INotebookTracker,
+  sender: NotebookActions,
+  args: { notebook: Notebook; cell: Cell }) {
+
+  const { notebook, cell } = args
+  console.log(
+    'NoteChat: executed cell & id: ',
+    cell.model.toJSON().source?.toString(),
+    '\nid: ',
+    cell.model.toJSON().id
+  )
+
+  // 查找与 executedNotebook 匹配的 NotebookPanel
+  const panel = notebookTracker.find(notebookPanel => {
+    return notebookPanel.content === notebook
+  })
+
+  if (panel) {
+    // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
+    const source = cell.model.toJSON().source?.toString() ?? ''
+    const processedSource = processCellSourceString(
+      source, [AI_NAME, USER_NAME], [`${REF_NAME} || ${REF_NAME}s`]
+    )
+    panel.sessionContext.session?.kernel?.requestExecute({
+      code: `${REF_NAME} = """${processedSource}"""\n${REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+    })
+  }
+}
+
 
 export default plugin
