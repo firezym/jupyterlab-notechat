@@ -39,7 +39,7 @@ const SETTINGS = {
   'USER_NAME': '**User:**',
   'REF_NAME': '_ref',
   'DEFAULT_PROMPT': "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so.",
-  'HELP': "How to Use NoteChat<br><br><br><br><br><br>"
+  'HELP': "How to Use NoteChat<br><br>"
 
 }
 
@@ -305,7 +305,29 @@ function addHelpCommand(
         if (!currentPanel) {
           return
         }
-        showCustomNotification(SETTINGS.HELP, currentPanel, 2000)
+
+        let displayString = SETTINGS.HELP + '--------<br>参数解析<br>'
+
+        const cellString = currentPanel.content.activeCell?.model.toJSON().source?.toString() ?? ''
+        const lines = cellString.trim().split('\n')
+        let params: { [key: string]: string } = {}
+        if (lines.length > 0) {
+          console.log('Lines: ', lines[0].replace(/^\s*[\[\]【】{}]\s*|\s*[\[\]【】{}]\s*$/g, ''))
+          
+          params = parseChatParams(lines[0] ?? '')
+        }
+        let paramString = ''
+        for (const key in params) {
+          paramString += `${key}: ${params[key]}<br>`
+        }
+
+        displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
+
+        const idArr = parseCellReferences(params['ids'], currentPanel.content.activeCellIndex)
+        displayString = displayString + idArr.join('<br>')
+
+        showCustomNotification(displayString, currentPanel, 2000)
+        // showCustomNotification(SETTINGS.HELP, currentPanel, 2000)
       }
     })
     // Add command to the palette
@@ -459,8 +481,7 @@ const chatCellData = async (
   )
 
   // 获取用户设置
-  const numPrevCells =
-    (userSettings.get('num_prev_cells').composite as number) || 2
+  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || 2
   const userSettingsData = {
     prompt: (userSettings.get('prompt').composite as string) || SETTINGS.DEFAULT_PROMPT
   }
@@ -488,6 +509,8 @@ const chatCellData = async (
   // 首先获取上下文
   const cellContext = await getOrganizedCellContext(panel, numPrevCells)
 
+  getCellJsonArrById(panel, [0,1])
+
   // 访问服务端
   const responseText = await getChatCompletions(cellContext, userSettingsData)
 
@@ -503,22 +526,10 @@ const chatCellData = async (
   ) {
     // 下方单元格中含有AI_NAME，则替换原内容
     console.log(`NoteChat: replace below md cell content containing ${SETTINGS.AI_NAME}`)
-    await replaceMdCellContentBelow(
-      panel,
-      responseText,
-      `${SETTINGS.AI_NAME}\n\n`,
-      true,
-      true
-    )
+    await replaceMdCellContentBelow(panel, responseText, `${SETTINGS.AI_NAME}\n\n`, true, true)
   } else {
     // 如果下方没有单元格或不含有AI回复标记，则插入新单元格
-    await insertNewMdCellBelow(
-      panel,
-      responseText,
-      `${SETTINGS.AI_NAME}\n\n`,
-      true,
-      true
-    )
+    await insertNewMdCellBelow(panel, responseText, `${SETTINGS.AI_NAME}\n\n`, true, true)
   }
 
   // 解锁is_chatting状态，用户可以继续提问
@@ -527,6 +538,140 @@ const chatCellData = async (
     'NoteChat: END chatting, notebook is_chatting status: ',
     panel?.model?.getMetadata('is_chatting')
   )
+}
+
+// 定义解析对话中参数的函数，接收一段文本作为输入，返回一个键值对映射对象
+const parseChatParams = (input: string): { [key: string]: string } => {
+  
+  // 初始化一个空对象来存储解析出的参数
+  const params: { [key: string]: string } = {}
+
+  // 在文本的开头和结尾添加一个空格
+  const modifiedText = ' ' + input.trim() + ' '
+  
+  // 使用正则表达式匹配参数模式。这包括 -param value 或 --param value 形式的参数，
+  // 以及不带值的 -param 或 --param 形式的参数
+  // 正则表达式以匹配以空格开头的参数
+  const regex = /\s--?\w+.*?(?=\s--?\w+|$)/g
+
+  // 使用正则表达式在提供的文本中查找匹配项
+  const matches = modifiedText.match(regex)
+
+  // 如果找到了匹配项，则遍历它们
+  if (matches) {
+    matches.forEach(param => {
+      // 将每个匹配项分割为单独的部分（参数名和参数值）
+      const parts = param.trim().split(/\s+/)
+      // 获取参数名，移除前面的 - 或 -- 前缀
+      const key = parts[0].replace(/^-+/, '')
+
+      // 如果参数后面没有跟随任何值，则将参数值设置为空字符串
+      // 否则，将参数后面的所有部分作为字符串值连接起来
+      if (parts.length === 1) {
+        params[key] = ''
+      } else {
+        params[key] = parts.slice(1).join(' ')
+      }
+    })
+  }
+  // 返回解析出的参数映射对象
+  return params;
+}
+
+// 专门解析cellid列表的函数
+const parseCellReferences = (
+  input: string,
+  currentId: number
+  ): (number | string)[] => {
+  
+  // 如果输入为空，则返回空数组
+  if (!input) {
+      return []
+  }
+  // 移除输入字符串两端的包裹符号
+  const trimmedInput = input.replace(/^\s*[\[\]【】{}]\s*|\s*[\[\]【】{}]\s*$/g, '');
+  // 使用逗号、分号等分隔符将字符串分割成多个token
+  const tokens = trimmedInput.split(/[,，|；;]/);
+
+  const ids: Set<number | string> = new Set();
+
+  tokens.forEach(token => {
+      // 如果token包含引号，处理为唯一ID引用
+      if (token.match(/['"“”‘’`]/)) {
+          // 移除所有引号并去除首尾空格
+          const uniqueId = token.replace(/['"“”‘’`]/g, '').trim();
+          // 如果处理后的字符串非空，则添加到ids集合中
+          if (uniqueId) {
+              ids.add(uniqueId);
+          }
+      }
+      // 如果token是一个纯数字或数字范围，处理为绝对数字ID引用
+      else if (token.match(/^(\d+(:\d+)?|\d+)$/)) {
+          // 分割起始和结束范围，并转换为数字，如果没有指定结束范围，则结束范围等于起始范围
+          const [startStr, endStr] = token.split(/[:：~]/);
+          const start = parseInt(startStr, 10);
+          const end = endStr ? parseInt(endStr, 10) : start;
+          // 将范围内的每个数字添加到ids集合中
+          for (let i = start; i <= end; i++) {
+              ids.add(i);
+          }
+      }
+      // 如果token是一个带有正负号的范围，处理为相对数字ID引用
+      else if (token.match(/^[-+]\d*[:：~]\d*$/)) {
+          // 分割起始和结束范围，并转换为数字，缺省值为0
+          const [startStr, endStr] = token.split(/[:：~]/);
+          const start = startStr ? parseInt(startStr, 10) : 0;
+          const end = endStr ? parseInt(endStr, 10) : 0;
+          // 调整范围为绝对值，基于currentId计算
+          const adjustedStart = start >= 0 ? currentId + start : currentId + start;
+          const adjustedEnd = end >= 0 ? currentId + end : currentId + end;
+          // 将调整后的范围内的每个数字添加到ids集合中
+          for (let i = Math.min(adjustedStart, adjustedEnd); i <= Math.max(adjustedStart, adjustedEnd); i++) {
+              ids.add(i);
+          }
+      }
+      // 如果token既不包含引号，也不符合数字范围的模式，视为唯一ID
+      else if (token.trim()) {
+          // 去除首尾空格后添加到ids集合中
+          ids.add(token.trim());
+      }
+  });
+
+  // 返回去重并排序的结果
+  return Array.from(ids).sort((a, b) => {
+      // 如果两个元素都是数字，按数字大小排序
+      if (typeof a === 'number' && typeof b === 'number') {
+          return a - b;
+      }
+      // 如果两个元素都是字符串，按字典序排序
+      if (typeof a === 'string' && typeof b === 'string') {
+          return a.localeCompare(b);
+      }
+      // 如果一个是数字一个是字符串，数字排在前面
+      return typeof a === 'number' ? -1 : 1;
+  });
+}
+
+
+
+// 获取指定范围数值id的单元格的json数据
+const getCellJsonArrById = async (
+  panel: NotebookPanel | null,
+  selectedCellIdArr: any[] | null = null
+): Promise<any[]> => {
+  if (!panel) {
+    return []
+  }
+  const cellJsonArr = []
+  for (let i = 0; i < panel.content.widgets.length; i++) {
+    const cellJson = panel.content.widgets[i]?.model.toJSON()
+    // 选择模式，只运行范围中选中的单元格，所以selectedArray不为空，且该id不在选择范围内，则跳过
+    if (selectedCellIdArr && !selectedCellIdArr.includes(i) && !selectedCellIdArr.includes(cellJson.id)) {
+      continue
+    }
+    cellJsonArr.push(panel.content.widgets[i].model.toJSON())
+  }
+  return cellJsonArr
 }
 
 // 获取和整理单元格上下文
