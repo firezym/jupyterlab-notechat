@@ -300,7 +300,7 @@ function addHelpCommand(
     app.commands.addCommand(command, {
       label: 'Help: How to Use NoteChat',
       icon: helpIconNoteChat,
-      execute: () => {
+      execute: async () => {
         const currentPanel = notebookTracker.currentWidget
         if (!currentPanel) {
           return
@@ -310,21 +310,29 @@ function addHelpCommand(
 
         const cellString = currentPanel.content.activeCell?.model.toJSON().source?.toString() ?? ''
         const lines = cellString.trim().split('\n')
-        let params: { [key: string]: string } = {}
-        if (lines.length > 0) {
-          console.log('Lines: ', lines[0].replace(/^\s*[\[\]【】{}]\s*|\s*[\[\]【】{}]\s*$/g, ''))
-          
-          params = parseChatParams(lines[0] ?? '')
-        }
+        let params = await parseChatParams(lines[0] ?? '')
+        let counts = 0
         let paramString = ''
         for (const key in params) {
           paramString += `${key}: ${params[key]}<br>`
+          counts++
         }
-
+        
+        displayString = displayString + `一共${counts}个参数<br><br>`
         displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
 
-        const idArr = parseCellReferences(params['ids'], currentPanel.content.activeCellIndex)
+        const idArr = await parseCellReferences(params['ids'], currentPanel.content.activeCellIndex)
+
+        displayString = displayString + `一共${idArr.length}个id<br><br>`
         displayString = displayString + idArr.join('<br>')
+        
+        displayString = displayString + '<br><br>--------<br>传入后端的cell<br>'
+        
+        const cellJsonArr = await getCellJsonArrById(currentPanel, idArr)
+
+        for (let i = 0; i < cellJsonArr.length; i++) {
+          displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]) + '<br>'
+        }
 
         showCustomNotification(displayString, currentPanel, 2000)
         // showCustomNotification(SETTINGS.HELP, currentPanel, 2000)
@@ -541,21 +549,29 @@ const chatCellData = async (
 }
 
 // 定义解析对话中参数的函数，接收一段文本作为输入，返回一个键值对映射对象
-const parseChatParams = (input: string): { [key: string]: string } => {
+const parseChatParams = async(
+  input: string
+  ): Promise<{ [key: string]: string }> => {
   
   // 初始化一个空对象来存储解析出的参数
   const params: { [key: string]: string } = {}
 
-  // 在文本的开头和结尾添加一个空格
-  const modifiedText = ' ' + input.trim() + ' '
   
-  // 使用正则表达式匹配参数模式。这包括 -param value 或 --param value 形式的参数，
+  
+  // 使用正则表达式匹配参数模式
+
   // 以及不带值的 -param 或 --param 形式的参数
+  // 在文本的开头和结尾添加一个空格
+  // const modifiedText = ' ' + input.trim() + ' '
   // 正则表达式以匹配以空格开头的参数
-  const regex = /\s--?\w+.*?(?=\s--?\w+|$)/g
+  // const regex = /\s--?\w+.*?(?=\s--?\w+|$)/g
+  // const matches = modifiedText.match(regex)
+
+  // 用@来匹配，因为-很容易和数字中的负号以及id中的-连接符混淆
+  const regex = /@(\w+)\s([^@]*)/g;
 
   // 使用正则表达式在提供的文本中查找匹配项
-  const matches = modifiedText.match(regex)
+  const matches = input.trim().match(regex)
 
   // 如果找到了匹配项，则遍历它们
   if (matches) {
@@ -563,7 +579,9 @@ const parseChatParams = (input: string): { [key: string]: string } => {
       // 将每个匹配项分割为单独的部分（参数名和参数值）
       const parts = param.trim().split(/\s+/)
       // 获取参数名，移除前面的 - 或 -- 前缀
-      const key = parts[0].replace(/^-+/, '')
+      // const key = parts[0].replace(/^-+/, '')
+      // 用@来匹配
+      const key = parts[0].replace(/^@/, '')
 
       // 如果参数后面没有跟随任何值，则将参数值设置为空字符串
       // 否则，将参数后面的所有部分作为字符串值连接起来
@@ -579,21 +597,24 @@ const parseChatParams = (input: string): { [key: string]: string } => {
 }
 
 // 专门解析cellid列表的函数
-const parseCellReferences = (
+const parseCellReferences = async (
   input: string,
   currentId: number
-  ): (number | string)[] => {
+  ): Promise<(number | string)[]> => {
   
   // 如果输入为空，则返回空数组
   if (!input) {
-      return []
+      return [currentId];
   }
   // 移除输入字符串两端的包裹符号
-  const trimmedInput = input.replace(/^\s*[\[\]【】{}]\s*|\s*[\[\]【】{}]\s*$/g, '');
-  // 使用逗号、分号等分隔符将字符串分割成多个token
-  const tokens = trimmedInput.split(/[,，|；;]/);
-
+  const trimmedInput = input.replace(/^\s*[\[\]【】{}()（）]\s*|\s*[\[\]【】{}()（）]\s*$/g, '');
+  // 使用逗号、分号、空格等分隔符将字符串分割成多个token
+  const tokens = trimmedInput.split(/[,，|；; ]+/);
+  // Set元素不重复
   const ids: Set<number | string> = new Set();
+
+  // 无论如何当前的id肯定是要加入到ids集合中的
+  ids.add(currentId);
 
   tokens.forEach(token => {
       // 如果token包含引号，处理为唯一ID引用
@@ -605,6 +626,15 @@ const parseCellReferences = (
               ids.add(uniqueId);
           }
       }
+      // 处理单独的带有正负号的数字
+      else if (token.match(/^[-+]\d+$/)) {
+        // 将token转换为数字
+        const offset = parseInt(token, 10);
+        // 计算相对于currentId的绝对值
+        const adjustedId = currentId + offset;
+        // 将计算后的ID添加到ids集合中
+        ids.add(adjustedId);
+      } 
       // 如果token是一个纯数字或数字范围，处理为绝对数字ID引用
       else if (token.match(/^(\d+(:\d+)?|\d+)$/)) {
           // 分割起始和结束范围，并转换为数字，如果没有指定结束范围，则结束范围等于起始范围
@@ -617,14 +647,14 @@ const parseCellReferences = (
           }
       }
       // 如果token是一个带有正负号的范围，处理为相对数字ID引用
-      else if (token.match(/^[-+]\d*[:：~]\d*$/)) {
+      else if (token.match(/^([-+]\d*[:：~]\d*|\d*[:：~][-+]\d*)$/)) {
           // 分割起始和结束范围，并转换为数字，缺省值为0
           const [startStr, endStr] = token.split(/[:：~]/);
           const start = startStr ? parseInt(startStr, 10) : 0;
           const end = endStr ? parseInt(endStr, 10) : 0;
           // 调整范围为绝对值，基于currentId计算
-          const adjustedStart = start >= 0 ? currentId + start : currentId + start;
-          const adjustedEnd = end >= 0 ? currentId + end : currentId + end;
+          const adjustedStart = currentId + start;
+          const adjustedEnd = currentId + end;
           // 将调整后的范围内的每个数字添加到ids集合中
           for (let i = Math.min(adjustedStart, adjustedEnd); i <= Math.max(adjustedStart, adjustedEnd); i++) {
               ids.add(i);
@@ -651,8 +681,6 @@ const parseCellReferences = (
       return typeof a === 'number' ? -1 : 1;
   });
 }
-
-
 
 // 获取指定范围数值id的单元格的json数据
 const getCellJsonArrById = async (
@@ -697,7 +725,7 @@ const getOrganizedCellContext = async (
 
     // 单元格Input文本
     let cellSourceText = cellModel.source?.toString() ?? ''
-    cellSourceText = processCellSourceString(
+    cellSourceText = await processCellSourceString(
       cellSourceText, [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
     )
 
@@ -921,11 +949,11 @@ const removeANSISequences = (str: string): string => {
 }
 
 // 处理 Markdown 单元格的字符串，根据指定的字符串数组移除首尾行
-const processCellSourceString = (
+const processCellSourceString = async (
   cellString: string,
   removeHeadStringArr: string[] = [], // 默认为空数组
   removeTailStringArr: string[] = []  // 默认为空数组
-): string => {
+): Promise<string> => {
   let lines = cellString.split('\n');
 
   // 如果第一行包含 removeHeadStringArr 中的任何字符串，则移除第一行
@@ -1040,7 +1068,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // 读取所有markdown的信息至kernel中
     // if (cell.model.type === 'markdown') {
     const source = cell.model.toJSON().source?.toString() ?? ''
-    const processedSource = processCellSourceString(
+    const processedSource = await processCellSourceString(
       source, [SETTINGS.AI_NAME, SETTINGS.USER_NAME], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
     )
     codes.push(
@@ -1112,7 +1140,7 @@ const showCellRef = async (
 
 }
 
-function sendOutputToKernel(
+async function sendOutputToKernel(
   notebookTracker: INotebookTracker,
   sender: NotebookActions,
   args: { notebook: Notebook; cell: Cell }) {
@@ -1133,7 +1161,7 @@ function sendOutputToKernel(
   if (panel) {
     // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
     const source = cell.model.toJSON().source?.toString() ?? ''
-    const processedSource = processCellSourceString(
+    const processedSource = await processCellSourceString(
       source, [SETTINGS.AI_NAME, SETTINGS.USER_NAME], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
     )
     panel.sessionContext.session?.kernel?.requestExecute({
