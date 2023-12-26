@@ -41,6 +41,8 @@
   left: 50%; /* 水平居中 */
   top: 50%; /* 垂直居中 */
   transform: translateX(-50%);
+  max-width: 30vw; /* 限制通知的最大宽度 */
+  border: 1px solid #fff; /* 添加白色边框 */
 }
 
 .notification::selection {

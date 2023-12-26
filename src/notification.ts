@@ -11,7 +11,7 @@ export const showCustomNotification = async (
     let timeoutId: number | null = null
 
     // 保存当前焦点的元素
-    const currentFocus = document.activeElement as HTMLElement
+    // const currentFocus = document.activeElement as HTMLElement
 
     // 重新启动倒计时
     const restartTimeout = () => {
@@ -41,9 +41,9 @@ export const showCustomNotification = async (
         document.body.removeChild(notification)
       }
       // 恢复焦点到之前的元素
-      if (currentFocus && typeof currentFocus.focus === 'function') {
-        currentFocus.focus();
-      }
+      // if (currentFocus && typeof currentFocus.focus === 'function') {
+      //   currentFocus.focus();
+      // }
     }
     
     // 创建通知元素
