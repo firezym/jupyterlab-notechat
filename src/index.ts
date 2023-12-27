@@ -39,8 +39,8 @@ const SETTINGS = {
   'USER_NAME': '**User:**',
   'REF_NAME': '_ref',
   'DEFAULT_PROMPT': "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so.",
-  'HELP': "How to Use NoteChat<br><br>"
-
+  'HELP': "How to Use NoteChat<br><br>",
+  'DATA_TYPES': ['text/plain', 'image/png', 'image/jpeg']
 }
 
 // 插件定义
@@ -332,6 +332,7 @@ function addHelpCommand(
 
         for (let i = 0; i < cellJsonArr.length; i++) {
           displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]) + '<br>'
+          console.log('NoteChat: cellJsonArr: ', cellJsonArr[i])
         }
 
         showCustomNotification(displayString, currentPanel, 2000)
@@ -500,9 +501,7 @@ const chatCellData = async (
   // 向上寻找直到找到一个不是AI回复的单元格
   while (
     panel.content.widgets[activeCellIndex]?.model
-      .toJSON()
-      .source?.toString()
-      .startsWith(SETTINGS.AI_NAME)
+      .toJSON().source?.toString().startsWith(SETTINGS.AI_NAME)
   ) {
     activeCellIndex = activeCellIndex - 1
     console.log(
@@ -556,8 +555,6 @@ const parseChatParams = async(
   // 初始化一个空对象来存储解析出的参数
   const params: { [key: string]: string } = {}
 
-  
-  
   // 使用正则表达式匹配参数模式
 
   // 以及不带值的 -param 或 --param 形式的参数
@@ -567,7 +564,7 @@ const parseChatParams = async(
   // const regex = /\s--?\w+.*?(?=\s--?\w+|$)/g
   // const matches = modifiedText.match(regex)
 
-  // 用@来匹配，因为-很容易和数字中的负号以及id中的-连接符混淆
+  // 改为用@来匹配，因为-很容易和数字中的负号以及id中的-连接符混淆
   const regex = /@(\w+)\s([^@]*)/g;
 
   // 使用正则表达式在提供的文本中查找匹配项
@@ -697,7 +694,27 @@ const getCellJsonArrById = async (
     if (selectedCellIdArr && !selectedCellIdArr.includes(i) && !selectedCellIdArr.includes(cellJson.id)) {
       continue
     }
-    cellJsonArr.push(panel.content.widgets[i].model.toJSON())
+
+    /** 遍历每个 cellJson?.outputs?里的output，如果output中有data字段，且该data字段有"text/html"，则置为[] */
+    if (Array.isArray(cellJson.outputs)) {
+      for (let output of cellJson.outputs) {
+        // 使用类型断言强制将 output 视为包含 data 属性的类型
+        const outputWithData = output as { data: { [key: string]: any } };
+    
+        if (outputWithData.data) {
+          // 获取所有键名
+          const dataKeys = Object.keys(outputWithData.data);
+    
+          // 遍历每个键，删除不是 image/png、text/plain 或 image/jpeg 的键
+          for (let key of dataKeys) {
+            if (!SETTINGS.DATA_TYPES.includes(key)) {
+              delete outputWithData.data[key];
+            }
+          }
+        }
+      }
+    }
+    cellJsonArr.push(cellJson)
   }
   return cellJsonArr
 }
