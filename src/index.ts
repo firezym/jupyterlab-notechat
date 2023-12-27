@@ -24,6 +24,7 @@ import {
   addUserCellIconNoteChat
 } from './icon'
 import { showCustomNotification } from './notification'
+import { SETTINGS } from './globals'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
@@ -33,15 +34,6 @@ const PLUGIN_ID = 'jupyterlab-notechat:plugin'
 
 // 用于存储每个NotebookPanel对应的按钮，暂时这么解决
 const BUTTON_MAP = new Map()
-
-const SETTINGS = {
-  'AI_NAME': '**AI Assistant:**',
-  'USER_NAME': '**User:**',
-  'REF_NAME': '_ref',
-  'DEFAULT_PROMPT': "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so.",
-  'HELP': "How to Use NoteChat<br><br>",
-  'DATA_TYPES': ['text/plain', 'image/png', 'image/jpeg']
-}
 
 // 插件定义
 const plugin: JupyterFrontEndPlugin<void> = {
@@ -321,14 +313,14 @@ function addHelpCommand(
         displayString = displayString + `一共${counts}个参数<br><br>`
         displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
 
-        const idArr = await parseCellReferences(params['ids'], currentPanel.content.activeCellIndex)
+        const refs = await parseCellReferences(params['ids'], currentPanel.content.activeCellIndex)
 
-        displayString = displayString + `一共${idArr.length}个id<br><br>`
-        displayString = displayString + idArr.join('<br>')
+        displayString = displayString + `一共${refs.length}个id<br><br>`
+        displayString = displayString + refs.join('<br>')
         
         displayString = displayString + '<br><br>--------<br>传入后端的cell<br>'
         
-        const cellJsonArr = await getCellJsonArrById(currentPanel, idArr)
+        const cellJsonArr = await getCellJsonArrById(currentPanel, refs)
 
         for (let i = 0; i < cellJsonArr.length; i++) {
           displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]) + '<br>'
@@ -490,7 +482,7 @@ const chatCellData = async (
   )
 
   // 获取用户设置
-  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || 2
+  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.NUM_PREV_CELLS
   const userSettingsData = {
     prompt: (userSettings.get('prompt').composite as string) || SETTINGS.DEFAULT_PROMPT
   }
@@ -498,18 +490,37 @@ const chatCellData = async (
   // 获取提问单元格的id
   // 默认为当前活动单元格的id
   let activeCellIndex = panel.content.activeCellIndex
+  let first_line = panel.content.activeCell?.model.toJSON().source?.toString().trim().split('\n')[0] ?? ''
+  let aiParamString = ''
+  let userParamString = ''
   // 向上寻找直到找到一个不是AI回复的单元格
   while (
-    panel.content.widgets[activeCellIndex]?.model
-      .toJSON().source?.toString().startsWith(SETTINGS.AI_NAME)
+    first_line.startsWith(SETTINGS.AI_NAME)
   ) {
+    // 解析AI单元格所设定的@param
+    aiParamString = first_line.trim()
     activeCellIndex = activeCellIndex - 1
     console.log(
       'NoteChat: this is an AI Assistant reply, jump to previous cell for question, previous id : ',
       activeCellIndex
     )
     panel.content.activeCellIndex = activeCellIndex
+    first_line = panel.content.activeCell?.model.toJSON().source?.toString().trim().split('\n')[0] ?? ''
   }
+
+  // 循环判定结束后，first_line肯定不是AI的回复了，判断下是不是user的回复
+  // if (first_line.startsWith(SETTINGS.USER_NAME)) {
+  userParamString = first_line.trim()
+  const aiParams = await parseChatParams(aiParamString)
+  const userParams = await parseChatParams(userParamString)
+  // 将userParams中的参数覆盖到aiParams中
+  const combinedParams = { ...aiParams, ...userParams }
+  const refs = await parseCellReferences(combinedParams[SETTINGS.PARAM_REF], activeCellIndex, numPrevCells)
+  const cellJsonContext = await getCellJsonArrById(panel, refs)
+  cellJsonContext
+
+
+
 
   /** TODO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
 
@@ -596,22 +607,27 @@ const parseChatParams = async(
 // 专门解析cellid列表的函数
 const parseCellReferences = async (
   input: string,
-  currentId: number
+  currentId: number,
+  numPrevCells: number = SETTINGS.NUM_PREV_CELLS
   ): Promise<(number | string)[]> => {
   
-  // 如果输入为空，则返回空数组
+  // 如果输入为空，则返回当前id及其前numPrevCells个id，如果用户定义为负数则取绝对值，只向前取不向后取
   if (!input) {
-      return [currentId];
+    const refs = [];
+    for (let i = Math.max(0, currentId - Math.abs(numPrevCells)); i <= currentId; i++) {
+      refs.push(i);
+    }
+    return refs;
   }
   // 移除输入字符串两端的包裹符号
   const trimmedInput = input.replace(/^\s*[\[\]【】{}()（）]\s*|\s*[\[\]【】{}()（）]\s*$/g, '');
   // 使用逗号、分号、空格等分隔符将字符串分割成多个token
   const tokens = trimmedInput.split(/[,，|；; ]+/);
   // Set元素不重复
-  const ids: Set<number | string> = new Set();
+  const refs: Set<number | string> = new Set();
 
   // 无论如何当前的id肯定是要加入到ids集合中的
-  ids.add(currentId);
+  refs.add(currentId);
 
   tokens.forEach(token => {
       // 如果token包含引号，处理为唯一ID引用
@@ -620,7 +636,7 @@ const parseCellReferences = async (
           const uniqueId = token.replace(/['"“”‘’`]/g, '').trim();
           // 如果处理后的字符串非空，则添加到ids集合中
           if (uniqueId) {
-              ids.add(uniqueId);
+            refs.add(uniqueId);
           }
       }
       // 处理单独的带有正负号的数字
@@ -630,42 +646,42 @@ const parseCellReferences = async (
         // 计算相对于currentId的绝对值
         const adjustedId = currentId + offset;
         // 将计算后的ID添加到ids集合中
-        ids.add(adjustedId);
+        refs.add(adjustedId);
       } 
       // 如果token是一个纯数字或数字范围，处理为绝对数字ID引用
       else if (token.match(/^(\d+(:\d+)?|\d+)$/)) {
-          // 分割起始和结束范围，并转换为数字，如果没有指定结束范围，则结束范围等于起始范围
-          const [startStr, endStr] = token.split(/[:：~]/);
-          const start = parseInt(startStr, 10);
-          const end = endStr ? parseInt(endStr, 10) : start;
-          // 将范围内的每个数字添加到ids集合中
-          for (let i = start; i <= end; i++) {
-              ids.add(i);
-          }
+        // 分割起始和结束范围，并转换为数字，如果没有指定结束范围，则结束范围等于起始范围
+        const [startStr, endStr] = token.split(/[:：~]/);
+        const start = parseInt(startStr, 10);
+        const end = endStr ? parseInt(endStr, 10) : start;
+        // 将范围内的每个数字添加到ids集合中
+        for (let i = start; i <= end; i++) {
+          refs.add(i);
+        }
       }
       // 如果token是一个带有正负号的范围，处理为相对数字ID引用
       else if (token.match(/^([-+]\d*[:：~]\d*|\d*[:：~][-+]\d*)$/)) {
-          // 分割起始和结束范围，并转换为数字，缺省值为0
-          const [startStr, endStr] = token.split(/[:：~]/);
-          const start = startStr ? parseInt(startStr, 10) : 0;
-          const end = endStr ? parseInt(endStr, 10) : 0;
-          // 调整范围为绝对值，基于currentId计算
-          const adjustedStart = currentId + start;
-          const adjustedEnd = currentId + end;
-          // 将调整后的范围内的每个数字添加到ids集合中
-          for (let i = Math.min(adjustedStart, adjustedEnd); i <= Math.max(adjustedStart, adjustedEnd); i++) {
-              ids.add(i);
-          }
+        // 分割起始和结束范围，并转换为数字，缺省值为0
+        const [startStr, endStr] = token.split(/[:：~]/);
+        const start = startStr ? parseInt(startStr, 10) : 0;
+        const end = endStr ? parseInt(endStr, 10) : 0;
+        // 调整范围为绝对值，基于currentId计算，如果小于0则取0
+        const adjustedStart = Math.max(0, currentId + start);
+        const adjustedEnd = Math.max(0, currentId + end);
+        // 将调整后的范围内的每个数字添加到ids集合中
+        for (let i = Math.min(adjustedStart, adjustedEnd); i <= Math.max(adjustedStart, adjustedEnd); i++) {
+          refs.add(i);
+        }
       }
       // 如果token既不包含引号，也不符合数字范围的模式，视为唯一ID
       else if (token.trim()) {
-          // 去除首尾空格后添加到ids集合中
-          ids.add(token.trim());
+        // 去除首尾空格后添加到ids集合中
+        refs.add(token.trim());
       }
   });
 
   // 返回去重并排序的结果
-  return Array.from(ids).sort((a, b) => {
+  return Array.from(refs).sort((a, b) => {
       // 如果两个元素都是数字，按数字大小排序
       if (typeof a === 'number' && typeof b === 'number') {
           return a - b;
@@ -682,7 +698,7 @@ const parseCellReferences = async (
 // 获取指定范围数值id的单元格的json数据
 const getCellJsonArrById = async (
   panel: NotebookPanel | null,
-  selectedCellIdArr: any[] | null = null
+  cellRefs: any[] | null = null
 ): Promise<any[]> => {
   if (!panel) {
     return []
@@ -691,7 +707,7 @@ const getCellJsonArrById = async (
   for (let i = 0; i < panel.content.widgets.length; i++) {
     const cellJson = panel.content.widgets[i]?.model.toJSON()
     // 选择模式，只运行范围中选中的单元格，所以selectedArray不为空，且该id不在选择范围内，则跳过
-    if (selectedCellIdArr && !selectedCellIdArr.includes(i) && !selectedCellIdArr.includes(cellJson.id)) {
+    if (cellRefs && !cellRefs.includes(i) && !cellRefs.includes(cellJson.id)) {
       continue
     }
 
