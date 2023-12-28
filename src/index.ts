@@ -325,11 +325,13 @@ function addHelpCommand(
         displayString = displayString + `<br><br>--------当前id ${currentPanel.content.activeCellIndex} --------<br>传入后端的cell<br>`
         
         const cellJsonArr = await getCellJsonArrById(currentPanel, refs)
+        
 
         for (let i = 0; i < cellJsonArr.length; i++) {
           displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]) + '<br>'
           console.log('NoteChat: cellJsonArr: ', cellJsonArr[i])
         }
+        
 
         showCustomNotification(displayString, currentPanel, 2000)
         // showCustomNotification(SETTINGS.help, currentPanel, 2000)
@@ -485,7 +487,6 @@ const chatCellData = async (
     panel?.model?.getMetadata('is_chatting')
   )
   
-
   // 初始化一个空对象来存储解析出的参数
   const userSettingParams: { [key: string]: any } = {...SETTINGS, ...CHAT_PARAMS}
   // 获取用户设置
@@ -529,12 +530,13 @@ const chatCellData = async (
   const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, numPrevCells)
   
   // 获取id相应的cell json列表
-  const cellJsonContext = await getCellJsonArrById(panel, refs)
+  const cellJsonArr = await getCellJsonArrById(panel, refs)
+  
   
   /** TO DO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
 
   // 访问服务端
-  const responseText = await getChatCompletions(cellJsonContext, cellParams)
+  const responseText = await getChatCompletions(cellJsonArr, cellParams)
 
   // 激活activeCellIndex所在的单元格：因为用户可能在等待过程中，切换到了其他单元格
   panel.content.activeCellIndex = activeCellIndex
@@ -562,8 +564,6 @@ const chatCellData = async (
   )
 }
 
-
-
 // 获取指定范围数值id的单元格的json数据
 const getCellJsonArrById = async (
   panel: NotebookPanel | null,
@@ -579,7 +579,7 @@ const getCellJsonArrById = async (
     if (cellRefs && !cellRefs.includes(i) && !cellRefs.includes(cellJson.id)) {
       continue
     }
-
+    cellJson['num_id'] = i
     /** 遍历每个 cellJson?.outputs?里的output，如果output中有data字段，且该data字段有"text/html"，则置为[] */
     if (Array.isArray(cellJson.outputs)) {
       for (let output of cellJson.outputs) {
@@ -601,28 +601,30 @@ const getCellJsonArrById = async (
     }
     cellJsonArr.push(cellJson)
   }
+  // console.log('NoteChat: cellJsonArr: ', cellJsonArr)
   return cellJsonArr
 }
 
 // 访问服务器获取AI回复
 const getChatCompletions = async (
-  cellContext: any[],
+  cellJsonArr: any[],
   cellParams: any
 ): Promise<string> => {
   
 
   // 如果cellContext为null、undefined、空字符串''、数字0、或布尔值false时，不访问服务器，直接返回
-  if (!cellContext) {
+  if (!cellJsonArr) {
     return 'No context is provided to the assistant...'
   }
 
   try {
     // 构建请求体
     const requestBody = {
-      context: cellContext,
+      cell_json_arr: cellJsonArr,
       ...cellParams
     }
-    console.log('NoteChat: request body: ', requestBody)
+
+    console.log('NoteChat: request body: ', JSON.stringify(requestBody))
 
     // 服务端交互
     const serverSettings = ServerConnection.makeSettings({})
