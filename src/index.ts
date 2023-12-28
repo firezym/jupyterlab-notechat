@@ -13,7 +13,7 @@ import {
 import { Cell } from '@jupyterlab/cells'
 import { ServerConnection } from '@jupyterlab/services'
 
-import { SETTINGS } from './globals'
+import { SETTINGS, CHAT_PARAMS } from './globals'
 import { showCustomNotification } from './notification'
 import {
   processCellSourceString,
@@ -41,7 +41,7 @@ const BUTTON_MAP = new Map()
 
 // 插件定义
 const plugin: JupyterFrontEndPlugin<void> = {
-  id: SETTINGS.PLUGIN_ID,
+  id: SETTINGS.plugin_id,
   description: 'Chat with an AI Assistant in the Notebook using OpenAI API',
   autoStart: true,
   requires: [ICommandPalette, INotebookTracker, ISettingRegistry],
@@ -302,7 +302,7 @@ function addHelpCommand(
           return
         }
 
-        let displayString = SETTINGS.HELP + '--------<br>参数解析<br>'
+        let displayString = SETTINGS.help + '--------<br>参数解析<br>'
 
         const cellString = currentPanel.content.activeCell?.model.toJSON().source?.toString() ?? ''
         const lines = cellString.trim().split('\n')
@@ -317,22 +317,22 @@ function addHelpCommand(
         displayString = displayString + `一共${counts}个参数<br><br>`
         displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
 
-        const refs = await parseCellReferences(params['ids'], currentPanel.content.activeCellIndex, SETTINGS.NUM_PREV_CELLS)
+        const refs = await parseCellReferences(params[SETTINGS.cell_param_name_refs], currentPanel.content.activeCellIndex, currentPanel.content.widgets.length - 1, SETTINGS.num_prev_cells)
 
         displayString = displayString + `一共${refs.length}个id<br><br>`
         displayString = displayString + refs.join('<br>')
         
-        displayString = displayString + '<br><br>--------<br>传入后端的cell<br>'
+        displayString = displayString + `<br><br>--------当前id ${currentPanel.content.activeCellIndex} --------<br>传入后端的cell<br>`
         
         const cellJsonArr = await getCellJsonArrById(currentPanel, refs)
 
         for (let i = 0; i < cellJsonArr.length; i++) {
-          displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]) + '<br>'
+          displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]) + '<br>'
           console.log('NoteChat: cellJsonArr: ', cellJsonArr[i])
         }
 
         showCustomNotification(displayString, currentPanel, 2000)
-        // showCustomNotification(SETTINGS.HELP, currentPanel, 2000)
+        // showCustomNotification(SETTINGS.help, currentPanel, 2000)
       }
     })
     // Add command to the palette
@@ -360,7 +360,7 @@ function addUserCellCommand(
         if (!currentPanel) {
           return
         }
-        insertNewMdCellBelow(currentPanel, '', `${SETTINGS.USER_NAME}\n\n`, false, false)
+        insertNewMdCellBelow(currentPanel, '', `${SETTINGS.user_name}\n\n`, false, false)
       }
     })
     // Add command to the palette
@@ -484,22 +484,25 @@ const chatCellData = async (
     'NoteChat: START chatting, notebook is_chatting status: ',
     panel?.model?.getMetadata('is_chatting')
   )
+  
 
+  // 初始化一个空对象来存储解析出的参数
+  const userSettingParams: { [key: string]: any } = {...SETTINGS, ...CHAT_PARAMS}
   // 获取用户设置
-  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.NUM_PREV_CELLS
-  const userSettingsData = {
-    prompt: (userSettings.get('prompt').composite as string) || SETTINGS.DEFAULT_PROMPT
-  }
-
+  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
+  userSettingParams['num_prev_cells'] = numPrevCells
+  userSettingParams['prompt'] = (userSettings.get('prompt').composite as string) || CHAT_PARAMS.prompt
+  
   // 获取提问单元格的id
   // 默认为当前活动单元格的id
   let activeCellIndex = panel.content.activeCellIndex
+  const maxIndex = panel.content.widgets.length - 1
   let first_line = panel.content.activeCell?.model.toJSON().source?.toString().trim().split('\n')[0] ?? ''
   let aiParamString = ''
   let userParamString = ''
   // 向上寻找直到找到一个不是AI回复的单元格
   while (
-    first_line.startsWith(SETTINGS.AI_NAME)
+    first_line.startsWith(SETTINGS.ai_name)
   ) {
     // 解析AI单元格所设定的@param
     aiParamString = first_line.trim()
@@ -513,22 +516,25 @@ const chatCellData = async (
   }
 
   // 循环判定结束后，first_line肯定不是AI的回复了，判断下是不是user的回复
-  // if (first_line.startsWith(SETTINGS.USER_NAME)) {
+  // if (first_line.startsWith(SETTINGS.user_name)) {
   userParamString = first_line.trim()
-  const aiParams = await parseChatParams(aiParamString)
-  const userParams = await parseChatParams(userParamString)
-  // 将userParams中的参数覆盖到aiParams中
-  const combinedParams = { ...aiParams, ...userParams }
-  const refs = await parseCellReferences(combinedParams[SETTINGS.PARAM_REF], activeCellIndex, numPrevCells)
-  const cellJsonContext = await getCellJsonArrById(panel, refs)
-  cellJsonContext
-
-
-  /** TODO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
-
+  const aiCellParams = await parseChatParams(aiParamString)
+  const userCellParams = await parseChatParams(userParamString)
   
+  // 将userParams中的参数覆盖到aiParams，再覆盖到userSettingParams
+  const cellParams = { ...userSettingParams, ...aiCellParams, ...userCellParams }
+  cellParams['active_cell_index'] = activeCellIndex
+
+  // 获取参数指定的上下文id列表
+  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, numPrevCells)
+  
+  // 获取id相应的cell json列表
+  const cellJsonContext = await getCellJsonArrById(panel, refs)
+  
+  /** TO DO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
+
   // 访问服务端
-  const responseText = await getChatCompletions(cellJsonContext, userSettingsData)
+  const responseText = await getChatCompletions(cellJsonContext, cellParams)
 
   // 激活activeCellIndex所在的单元格：因为用户可能在等待过程中，切换到了其他单元格
   panel.content.activeCellIndex = activeCellIndex
@@ -538,14 +544,14 @@ const chatCellData = async (
     panel.content.widgets[activeCellIndex + 1]?.model
       .toJSON()
       .source?.toString()
-      .startsWith(SETTINGS.AI_NAME)
+      .startsWith(SETTINGS.ai_name)
   ) {
     // 下方单元格中含有AI_NAME，则替换原内容
-    console.log(`NoteChat: replace below md cell content containing ${SETTINGS.AI_NAME}`)
-    await replaceMdCellContentBelow(panel, responseText, `${SETTINGS.AI_NAME}\n\n`, true, true)
+    console.log(`NoteChat: replace below md cell content containing ${SETTINGS.ai_name}`)
+    await replaceMdCellContentBelow(panel, responseText, `${SETTINGS.ai_name}\n\n`, true, true)
   } else {
     // 如果下方没有单元格或不含有AI回复标记，则插入新单元格
-    await insertNewMdCellBelow(panel, responseText, `${SETTINGS.AI_NAME}\n\n`, true, true)
+    await insertNewMdCellBelow(panel, responseText, `${SETTINGS.ai_name}\n\n`, true, true)
   }
 
   // 解锁is_chatting状态，用户可以继续提问
@@ -586,7 +592,7 @@ const getCellJsonArrById = async (
     
           // 遍历每个键，删除不是 image/png、text/plain 或 image/jpeg 的键
           for (let key of dataKeys) {
-            if (!SETTINGS.DATA_TYPES.includes(key)) {
+            if (!SETTINGS.data_types.includes(key)) {
               delete outputWithData.data[key];
             }
           }
@@ -600,22 +606,10 @@ const getCellJsonArrById = async (
 
 // 访问服务器获取AI回复
 const getChatCompletions = async (
-  cellContext: string,
-  userSettingsData: any
+  cellContext: any[],
+  cellParams: any
 ): Promise<string> => {
-  const defaultSettings = {
-    prompt: SETTINGS.DEFAULT_PROMPT,
-    model: 'gpt-3.5-turbo',
-    response_format: 'text',
-    temperature: 0.5,
-    timeout: 200,
-    retries: 2,
-    delay: 0.5
-    // 其他可能的默认值...
-  }
-  // 现在 combinedSettings 包含了所有的设置，缺失的部分使用了默认值
-  // 你可以在这里使用 combinedSettings
-  const combinedSettings = { ...defaultSettings, ...userSettingsData }
+  
 
   // 如果cellContext为null、undefined、空字符串''、数字0、或布尔值false时，不访问服务器，直接返回
   if (!cellContext) {
@@ -625,23 +619,10 @@ const getChatCompletions = async (
   try {
     // 构建请求体
     const requestBody = {
-      messages: [
-        {
-          role: 'system',
-          content: combinedSettings.prompt
-        },
-        {
-          role: 'user',
-          content: cellContext
-        }
-      ],
-      model: combinedSettings.model,
-      response_format: combinedSettings.response_format,
-      temperature: combinedSettings.temperature,
-      timeout: combinedSettings.timeout,
-      retries: combinedSettings.retries,
-      delay: combinedSettings.delay
+      context: cellContext,
+      ...cellParams
     }
+    console.log('NoteChat: request body: ', requestBody)
 
     // 服务端交互
     const serverSettings = ServerConnection.makeSettings({})
@@ -694,7 +675,7 @@ const insertNewMdCellBelow = async (
     const changedNewCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
     const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s["${changedNewCell?.model.toJSON()
+      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.ref_name} || ${SETTINGS.ref_name}s["${changedNewCell?.model.toJSON()
           .id}"]</div>`
       : ''
     // 将单元格的source设置为指定的内容
@@ -726,7 +707,7 @@ const replaceMdCellContentBelow = async (
     const changedBelowCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
     const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s["${changedBelowCell?.model.toJSON()
+      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.ref_name} || ${SETTINGS.ref_name}s["${changedBelowCell?.model.toJSON()
           .id}"]</div>`
       : ''
     // 将单元格的source设置为指定的内容
@@ -762,7 +743,7 @@ const chatCellDataRange = async (
   startIndex = startIndex ?? 0
   // 如果所选的范围中，第一个单元格正好为AI回复，则向前移动一个
   const startCellSource = panel.content.widgets[startIndex]?.model.toJSON().source?.toString() ?? ''
-  if (startCellSource.startsWith(SETTINGS.AI_NAME)) {
+  if (startCellSource.startsWith(SETTINGS.ai_name)) {
     startIndex = Math.max(startIndex - 1, 0)
   }
   endIndex = endIndex ?? maxIndex
@@ -777,11 +758,11 @@ const chatCellDataRange = async (
     }
 
     const currentCellSource = panel.content.widgets[i]?.model.toJSON().source?.toString() ?? ''
-    if (currentCellSource.startsWith(SETTINGS.AI_NAME)) {
+    if (currentCellSource.startsWith(SETTINGS.ai_name)) {
       continue
     } else {
       const nextCellSource = panel.content.widgets[i + 1]?.model.toJSON().source?.toString() ?? ''
-      if (currentCellSource.startsWith(SETTINGS.USER_NAME) || nextCellSource.startsWith(SETTINGS.AI_NAME)) {
+      if (currentCellSource.startsWith(SETTINGS.user_name) || nextCellSource.startsWith(SETTINGS.ai_name)) {
         runCellTypes.push({ id: i, type: 'chat' })
       } else {
         runCellTypes.push({ id: i, type: 'normal' })
@@ -829,7 +810,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
   }
 
   // 初始化_refs作为一个空的dict变量
-  const codes = [`${SETTINGS.REF_NAME}s = {}`]
+  const codes = [`${SETTINGS.ref_name}s = {}`]
   let lastRef = ''
   for (let i = 0; i < panel.content.widgets.length; i++) {
     const cell = panel.content.widgets[i]
@@ -839,12 +820,12 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // if (cell.model.type === 'markdown') {
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = await processCellSourceString(
-      source, [SETTINGS.AI_NAME, SETTINGS.USER_NAME], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
+      source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]
     )
     codes.push(
-      `${SETTINGS.REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+      `${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
     )
-    lastRef = `${SETTINGS.REF_NAME} = """${processedSource}"""`
+    lastRef = `${SETTINGS.ref_name} = """${processedSource}"""`
     // }
   }
   //如果lastRef不为空字符串，则加入codes中
@@ -932,10 +913,10 @@ async function sendOutputToKernel(
     // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = await processCellSourceString(
-      source, [SETTINGS.AI_NAME, SETTINGS.USER_NAME], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
+      source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]
     )
     panel.sessionContext.session?.kernel?.requestExecute({
-      code: `${SETTINGS.REF_NAME} = """${processedSource}"""\n${SETTINGS.REF_NAME}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+      code: `${SETTINGS.ref_name} = """${processedSource}"""\n${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
     })
   }
 }

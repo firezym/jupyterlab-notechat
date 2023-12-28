@@ -3,7 +3,7 @@ import { ServerConnection } from '@jupyterlab/services'
 import { NotebookPanel } from '@jupyterlab/notebook'
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat'
 
-import { SETTINGS } from './globals'
+import { SETTINGS, CHAT_PARAMS } from './globals'
 import { removeANSISequences, processCellSourceString } from  './utils'
 
 /**
@@ -55,7 +55,7 @@ export const getChatCompletions = async (
   userSettingsData: any
 ): Promise<string> => {
   const defaultSettings = {
-    prompt: SETTINGS.DEFAULT_PROMPT,
+    prompt: CHAT_PARAMS.prompt,
     model: 'gpt-3.5-turbo',
     response_format: 'text',
     temperature: 0.5,
@@ -150,7 +150,7 @@ export const getOrganizedCellContext = async (
     // 单元格Input文本
     let cellSourceText = cellModel.source?.toString() ?? ''
     cellSourceText = await processCellSourceString(
-      cellSourceText, [], [`${SETTINGS.REF_NAME} || ${SETTINGS.REF_NAME}s`]
+      cellSourceText, [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]
     )
 
     // 处理Markdown类型的单元格
