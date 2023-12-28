@@ -32,10 +32,10 @@ export const processCellSourceString = async (
 // 定义解析对话中参数的函数，接收一段文本作为输入，返回一个键值对映射对象
 export const parseChatParams = async(
   input: string
-  ): Promise<{ [key: string]: string }> => {
+  ): Promise<{ [key: string]: any }> => {
   
   // 初始化一个空对象来存储解析出的参数
-  const params: { [key: string]: string } = {}
+  const params: { [key: string]: any } = {}
 
   // 使用正则表达式匹配参数模式
 
@@ -79,6 +79,7 @@ export const parseChatParams = async(
 export const parseCellReferences = async (
   input: string,
   currentId: number,
+  maxId: number,
   numPrevCells: number = 2
   ): Promise<(number | string)[]> => {
   
@@ -90,18 +91,22 @@ export const parseCellReferences = async (
     }
     return refs;
   }
+
   // 移除输入字符串两端的包裹符号
   const trimmedInput = input.replace(/^\s*[\[\]【】{}()（）]\s*|\s*[\[\]【】{}()（）]\s*$/g, '');
   // 使用逗号、分号、空格等分隔符将字符串分割成多个token
   const tokens = trimmedInput.split(/[,，|；; ]+/);
+
   // Set元素不重复
   const refs: Set<number | string> = new Set();
-
   // 无论如何当前的id肯定是要加入到ids集合中的
   refs.add(currentId);
-
+  
+  // cell中的范围定义覆盖全局：是否有范围，如果有，就不用加入prevNumCells作为参数，如果没有，就加入prevNumCells作为参数
+  let hasRange = false
+  
   tokens.forEach(token => {
-      // 如果token包含引号，处理为唯一ID引用
+      /** 如果token包含引号，处理为唯一ID引用 */
       if (token.match(/['"“”‘’`]/)) {
           // 移除所有引号并去除首尾空格
           const uniqueId = token.replace(/['"“”‘’`]/g, '').trim();
@@ -110,37 +115,124 @@ export const parseCellReferences = async (
             refs.add(uniqueId);
           }
       }
-      // 处理单独的带有正负号的数字
+      /** 处理单独的带有正负号的数字，处理单个相对数字ID引用 */
       else if (token.match(/^[-+]\d+$/)) {
         // 将token转换为数字
-        const offset = parseInt(token, 10);
+        const relativeNumId = parseInt(token, 10);
         // 计算相对于currentId的绝对值
-        const adjustedId = currentId + offset;
+        const adjustedId = currentId + relativeNumId;
         // 将计算后的ID添加到ids集合中
         refs.add(adjustedId);
-      } 
-      // 如果token是一个纯数字或数字范围，处理为绝对数字ID引用
-      else if (token.match(/^(\d+(:\d+)?|\d+)$/)) {
-        // 分割起始和结束范围，并转换为数字，如果没有指定结束范围，则结束范围等于起始范围
-        const [startStr, endStr] = token.split(/[:：~]/);
-        const start = parseInt(startStr, 10);
-        const end = endStr ? parseInt(endStr, 10) : start;
-        // 将范围内的每个数字添加到ids集合中
-        for (let i = start; i <= end; i++) {
+      }
+      /** 如果token是一个纯数字，处理为单个绝对数字ID引用 */
+      else if (token.match(/^\d+$/)) {
+        const numId = parseInt(token, 10);
+        refs.add(numId);
+      }
+      // 如果token是一个带有正负号的范围，处理为相对数字ID引用
+      // 匹配全范围
+      else if (token.match(/^[:：~]+$/)) {
+        hasRange = true
+        // 无需解析，直接添加所有ID
+        for (let i = 0; i <= maxId; i++) {
           refs.add(i);
         }
       }
-      // 如果token是一个带有正负号的范围，处理为相对数字ID引用
-      else if (token.match(/^([-+]\d*[:：~]\d*|\d*[:：~][-+]\d*)$/)) {
+      // 匹配+和: +0: | +: || :+0 | :+ || +:0 | 0:+ ，表示active index之后的所有的cell，可以匹配多个重复字符
+      else if (token.match(/^(\++0*[:：~]+|[:：~]+\++0*|\++[:：~]+0+|0+[:：~]+\++)$/)) {
+        hasRange = true
+        // 无需解析，直接添加所有ID
+        for (let i = currentId; i <= maxId; i++) {
+          refs.add(i);
+        }
+      }
+      // 匹配-和: -0: | -: || :-0 | :- || -:0 | 0:- ，表示active index之前的所有的cell，可以匹配多个重复字符
+      else if (token.match(/^(\-+0*[:：~]+|[:：~]+\-+0*|\-+[:：~]+0+|0+[:：~]+\-+)$/)) {
+        hasRange = true
+        // 无需解析，直接添加所有ID
+        for (let i = 0; i <= currentId; i++) {
+          refs.add(i);
+        }
+      }
+      // 匹配 +x: | -x:，表示该相对index之后所有的cell
+      else if (token.match(/^[-+]\d+[:：~]$/)) {
+        hasRange = true
+        // 分割起始和结束范围，并转换为数字，缺省值为0
+        const [startStr,] = token.split(/[:：~]/);
+        const start = startStr ? parseInt(startStr, 10) : 0;
+        // 调整范围为绝对值，基于currentId计算，如果小于0则取0
+        const adjustedStart = Math.max(0, currentId + start);
+        // 将调整后的范围内的每个数字添加到ids集合中
+        for (let i = adjustedStart; i <= maxId; i++) {
+          refs.add(i);
+        }
+      }
+      // 匹配无符号 x:，表示该绝对index之后所有的cell
+      else if (token.match(/^\d+[:：~]$/)) {
+        hasRange = true
+        // 分割起始和结束范围，并转换为数字，缺省值为0
+        const [startStr,] = token.split(/[:：~]/);
+        const start = startStr ? parseInt(startStr, 10) : 0;
+        // 调整范围为绝对值，如果小于0则取0
+        const adjustedStart = Math.max(0, start);
+        // 将调整后的范围内的每个数字添加到ids集合中
+        for (let i = adjustedStart; i <= maxId; i++) {
+          refs.add(i);
+        }
+      }
+      // 匹配 :+x | :-x，表示该相对index之前所有的cell
+      else if (token.match(/^[:：~][-+]\d+$/)) {
+        hasRange = true
+        // 分割起始和结束范围，并转换为数字，缺省值为0
+        const [,endStr] = token.split(/[:：~]/);
+        const end = endStr ? parseInt(endStr, 10) : 0;
+        // 调整范围为绝对值，基于currentId计算，如果大于maxId则取maxId
+        const adjustedEnd = Math.min(currentId + end, maxId);
+        // 将调整后的范围内的每个数字添加到ids集合中
+        for (let i = 0; i <= adjustedEnd; i++) {
+          refs.add(i);
+        }
+      }
+      // 匹配无符号 :x，表示该绝对index之前所有的cell
+      else if (token.match(/^[:：~]\d+$/)) {
+        hasRange = true
+        // 分割起始和结束范围，并转换为数字，缺省值为0
+        const [,endStr] = token.split(/[:：~]/);
+        const end = endStr ? parseInt(endStr, 10) : 0;
+        // 调整范围为绝对值，如果大于maxId则取maxId
+        const adjustedEnd = Math.min(end, maxId);
+        // 将调整后的范围内的每个数字添加到ids集合中
+        for (let i = 0; i <= adjustedEnd; i++) {
+          refs.add(i);
+        }
+      }
+      // 匹配 +-x:y | x:+-y | +-x:+-y 三种带符号的情况
+      else if (token.match(/^([-+]\d+[:：~]\d+|\d+[:：~][-+]\d+|[-+]\d+[:：~][-+]\d+)$/)) {
+        hasRange = true
         // 分割起始和结束范围，并转换为数字，缺省值为0
         const [startStr, endStr] = token.split(/[:：~]/);
         const start = startStr ? parseInt(startStr, 10) : 0;
         const end = endStr ? parseInt(endStr, 10) : 0;
-        // 调整范围为绝对值，基于currentId计算，如果小于0则取0
-        const adjustedStart = Math.max(0, currentId + start);
-        const adjustedEnd = Math.max(0, currentId + end);
+        // 调整范围为绝对值，基于currentId计算，通过判断大小把范围顺序先调整好
+        const adjustedStart = Math.min(currentId + start, currentId + end);
+        const adjustedEnd = Math.max(currentId + start, currentId + end);
         // 将调整后的范围内的每个数字添加到ids集合中
-        for (let i = Math.min(adjustedStart, adjustedEnd); i <= Math.max(adjustedStart, adjustedEnd); i++) {
+        for (let i = Math.max(0, adjustedStart); i <= Math.min(adjustedEnd, maxId); i++) {
+          refs.add(i);
+        }
+      }
+      // 如果token是一个纯数字范围，处理为绝对数字ID引用
+      else if (token.match(/^(\d+[:：~]\d*|\d*[:：~]\d+)$/)) {
+        hasRange = true
+        // 分割起始和结束范围，并转换为数字，如果没有指定结束范围，则结束范围等于起始范围
+        const [startStr, endStr] = token.split(/[:：~]/);
+        const start = startStr ? parseInt(startStr, 10) : 0;
+        const end = endStr ? parseInt(endStr, 10) : 0;
+        // 调整范围为绝对值，通过判断大小把范围顺序先调整好
+        const adjustedStart = Math.min(start, end);
+        const adjustedEnd = Math.max(start, end);
+        // 将范围内的每个数字添加到ids集合中
+        for (let i = Math.max(0, adjustedStart); i <= Math.min(adjustedEnd, maxId); i++) {
           refs.add(i);
         }
       }
@@ -150,6 +242,13 @@ export const parseCellReferences = async (
         refs.add(token.trim());
       }
   });
+
+  // 如果没有cell的个性化范围覆盖，就加入默认的prevNumCells范围
+  if (hasRange === false) {
+    for (let i = Math.max(0, currentId - Math.abs(numPrevCells)); i <= currentId; i++) {
+      refs.add(i);
+    }
+  }
 
   // 返回去重并排序的结果
   return Array.from(refs).sort((a, b) => {
