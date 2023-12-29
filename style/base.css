@@ -15,7 +15,7 @@
 }
 
 .rotate-color .notechat-color {
-  fill: cyan; /* 旋转颜色 */
+  fill: red; /* 旋转颜色 cyan, red, orangered */
 }
 
 @keyframes rotation {
