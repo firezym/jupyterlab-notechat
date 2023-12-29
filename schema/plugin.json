@@ -49,6 +49,38 @@
       }
     ]
   },
+  "jupyter.lab.toolbars": {
+    "Cell": [
+      {
+        "name": "run-cell",
+        "command": "notebook:run-cell",
+        "icon": "ui-components:run",
+        "caption": "Run Cell without AI Assistant",
+        "rank": 65
+      },
+      {
+        "name": "note-chat",
+        "command": "jupyterlab-notechat:chat-cell-data",
+        "icon": "jupyterlab-notechat:atom-icon",
+        "caption": "Chat with AI Assistant",
+        "rank": 66
+      },
+      {
+        "name": "cell-info",
+        "command": "jupyterlab-notechat:show-cell-ref",
+        "icon": "jupyterlab-notechat:info-icon",
+        "caption": "Show & Copy Cell ID for Ref",
+        "rank": 67
+      },
+      {
+        "name": "add-user-cell",
+        "command": "jupyterlab-notechat:add-user-cell",
+        "icon": "jupyterlab-notechat:user-icon",
+        "caption": "Add a User Chat Cell Below",
+        "rank": 68
+      }
+    ]
+  },
   "jupyter.lab.setting-icon": "jupyterlab-notechat:atom-icon",
   "properties": {
     "prompt": {
