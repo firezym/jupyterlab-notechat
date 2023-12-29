@@ -49,6 +49,7 @@
       }
     ]
   },
+  "jupyter.lab.setting-icon": "jupyterlab-notechat:atom-icon",
   "properties": {
     "prompt": {
       "type": "string",
