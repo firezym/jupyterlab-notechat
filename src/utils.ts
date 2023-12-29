@@ -129,6 +129,11 @@ export const parseCellReferences = async (
         const numId = parseInt(token, 10);
         refs.add(numId);
       }
+      /** 如果token匹配`sole`,`single`,`alone`三个单词，则视为当前活动单元格，忽略默认的range */
+      else if (token.match(/^(sole|single|alone)$/)) {
+        hasRange = true
+        refs.add(currentId);
+      }
       // 如果token是一个带有正负号的范围，处理为相对数字ID引用
       // 匹配全范围
       else if (token.match(/^[:：~]+$/)) {
