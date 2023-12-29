@@ -46,7 +46,7 @@
 }
 
 .notification::selection {
-  background-color: #ffcc00; /* 选中区域的背景色，例如亮黄色 */
+  background-color: #fc0; /* 选中区域的背景色，例如亮黄色 */
   color: #000; /* 选中文本的颜色，例如黑色 */
 }
 
@@ -60,4 +60,3 @@
   cursor: pointer;
   font-size: 16px;
 }
-

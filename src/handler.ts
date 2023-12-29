@@ -4,7 +4,7 @@ import { NotebookPanel } from '@jupyterlab/notebook'
 import { IOutput, IExecuteResult } from '@jupyterlab/nbformat'
 
 import { SETTINGS, CHAT_PARAMS } from './globals'
-import { removeANSISequences, processCellSourceString } from  './utils'
+import { removeANSISequences, processCellSourceString } from './utils'
 
 /**
  * Call the API extension
@@ -13,10 +13,7 @@ import { removeANSISequences, processCellSourceString } from  './utils'
  * @param init Initial values for the request
  * @returns The response body interpreted as JSON
  */
-export async function requestAPI<T>(
-  endPoint = '',
-  init: RequestInit = {}
-): Promise<T> {
+export async function requestAPI<T>(endPoint = '', init: RequestInit = {}): Promise<T> {
   // Make request to Jupyter API
   const settings = ServerConnection.makeSettings()
   const requestUrl = URLExt.join(
@@ -50,10 +47,7 @@ export async function requestAPI<T>(
 }
 
 // 访问服务器获取AI回复
-export const getChatCompletions = async (
-  cellContext: string,
-  userSettingsData: any
-): Promise<string> => {
+export const getChatCompletions = async (cellContext: string, userSettingsData: any): Promise<string> => {
   const defaultSettings = {
     prompt: CHAT_PARAMS.prompt,
     model: 'gpt-3.5-turbo',
@@ -110,10 +104,7 @@ export const getChatCompletions = async (
 
     //服务端异常处理
     if (!serverResponse.ok) {
-      console.error(
-        'NoteChat: ERROR in sending data to the server: ',
-        serverResponse.statusText
-      )
+      console.error('NoteChat: ERROR in sending data to the server: ', serverResponse.statusText)
       return 'Error in sending data to the server...'
     }
     const res = await serverResponse.json()
@@ -125,12 +116,8 @@ export const getChatCompletions = async (
   }
 }
 
-
 // 获取和整理单元格上下文
-export const getOrganizedCellContext = async (
-  panel: NotebookPanel,
-  numPrevCells: number
-): Promise<string> => {
+export const getOrganizedCellContext = async (panel: NotebookPanel, numPrevCells: number): Promise<string> => {
   let combinedOutput = ''
   const activeCellIndex = panel.content.activeCellIndex
   const startIndex = Math.max(0, activeCellIndex - numPrevCells)
@@ -149,9 +136,7 @@ export const getOrganizedCellContext = async (
 
     // 单元格Input文本
     let cellSourceText = cellModel.source?.toString() ?? ''
-    cellSourceText = await processCellSourceString(
-      cellSourceText, [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]
-    )
+    cellSourceText = await processCellSourceString(cellSourceText, [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])
 
     // 处理Markdown类型的单元格
     if (cellModel.cell_type === 'markdown') {
@@ -177,35 +162,24 @@ export const getOrganizedCellContext = async (
           switch (typedOutput.output_type) {
             case 'stream':
               {
-                combinedOutput += `${
-                  typedOutput.text?.toString().trim() ?? ''
-                }\n----------\n`
+                combinedOutput += `${typedOutput.text?.toString().trim() ?? ''}\n----------\n`
               }
               break
             case 'execute_result':
               {
-                const typedOutputData =
-                  typedOutput.data as IExecuteResult['data']
+                const typedOutputData = typedOutput.data as IExecuteResult['data']
 
                 if (typedOutputData['text/html']) {
-                  combinedOutput += `${
-                    typedOutputData['text/html']?.toString().trim() ?? ''
-                  }\n----------\n`
+                  combinedOutput += `${typedOutputData['text/html']?.toString().trim() ?? ''}\n----------\n`
                 } else {
-                  combinedOutput += `${
-                    typedOutputData['text/plain']?.toString().trim() ?? ''
-                  }\n----------\n`
+                  combinedOutput += `${typedOutputData['text/plain']?.toString().trim() ?? ''}\n----------\n`
                 }
               }
               break
             case 'error':
               {
                 const cellErrorText = typedOutput.traceback?.toString() ?? ''
-                combinedOutput += `Error: ${
-                  typedOutput.ename
-                } --- Error Value: ${typedOutput.evalue}\n${removeANSISequences(
-                  cellErrorText
-                )}\n----------\n`
+                combinedOutput += `Error: ${typedOutput.ename} --- Error Value: ${typedOutput.evalue}\n${removeANSISequences(cellErrorText)}\n----------\n`
               }
               break
             // display_data 跳过
@@ -218,9 +192,6 @@ export const getOrganizedCellContext = async (
   }
 
   console.log(combinedOutput)
-  console.log(
-    'NoteChat: context processed, notebook is_chatting status: ',
-    panel?.model?.getMetadata('is_chatting')
-  )
+  console.log('NoteChat: context processed, notebook is_chatting status: ', panel?.model?.getMetadata('is_chatting'))
   return combinedOutput
 }

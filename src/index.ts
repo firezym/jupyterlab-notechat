@@ -4,33 +4,14 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry'
 
 import { ICommandPalette, ToolbarButton } from '@jupyterlab/apputils'
 import { URLExt } from '@jupyterlab/coreutils'
-import {
-  INotebookTracker,
-  NotebookPanel,
-  NotebookActions,
-  Notebook
-} from '@jupyterlab/notebook'
+import { INotebookTracker, NotebookPanel, NotebookActions, Notebook } from '@jupyterlab/notebook'
 import { Cell } from '@jupyterlab/cells'
 import { ServerConnection } from '@jupyterlab/services'
 
 import { SETTINGS, CHAT_PARAMS } from './globals'
 import { showCustomNotification } from './notification'
-import {
-  processCellSourceString,
-  parseChatParams,
-  parseCellReferences
-} from  './utils'
-import {
-  atomIconNoteChat,
-  infoIconNoteChat,
-  runAllIconNoteChat,
-  runAboveIconNoteChat,
-  runBelowIconNoteChat,
-  runSelectedIconNoteChat,
-  helpIconNoteChat,
-  addUserCellIconNoteChat
-} from './icon'
-
+import { processCellSourceString, parseChatParams, parseCellReferences } from './utils'
+import { atomIconNoteChat, infoIconNoteChat, runAllIconNoteChat, runAboveIconNoteChat, runBelowIconNoteChat, runSelectedIconNoteChat, helpIconNoteChat, addUserCellIconNoteChat } from './icon'
 
 /**
  * Initialization data for the jupyterlab-notechat extension.
@@ -45,12 +26,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
   description: 'Chat with an AI Assistant in the Notebook using OpenAI API',
   autoStart: true,
   requires: [ICommandPalette, INotebookTracker, ISettingRegistry],
-  activate: (
-    app: JupyterFrontEnd,
-    palette: ICommandPalette,
-    notebookTracker: INotebookTracker,
-    settingRegistry: ISettingRegistry | null
-  ) => {
+  activate: (app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settingRegistry: ISettingRegistry | null) => {
     console.log('JupyterLab extension jupyterlab-notechat is activated!')
 
     if (settingRegistry) {
@@ -58,13 +34,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
         .load(plugin.id)
         .then(settings => {
           console.log('NoteChat: settings loaded', settings.composite)
-          
+
           /** Add command: chat cell with AI Assistant */
           addChatCellDataCommand(app, palette, notebookTracker, settings)
 
           // Add a toolbar button
           notebookTracker.widgetAdded.connect((tracker, panel) => {
-
             /** 将button和panel绑定起来 */
             addButtonWidgetToPanel(panel, settings)
 
@@ -109,280 +84,237 @@ const plugin: JupyterFrontEndPlugin<void> = {
           NotebookActions.executed.connect((sender, args) => {
             sendOutputToKernel(notebookTracker, sender, args)
           })
-
         })
         .catch(reason => {
-          console.error(
-            'NoteChat: failed to load settings for jupyterlab-notechat.',
-            reason
-          )
+          console.error('NoteChat: failed to load settings for jupyterlab-notechat.', reason)
         })
     }
   }
 }
 
 /** Add command: chat cell with AI Assistant */
-function addChatCellDataCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:chat-cell-data'
-    app.commands.addCommand(command, {
-      label: 'Chat with AI Assistant',
-      icon: atomIconNoteChat,
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        console.log(
-          'NoteChat: command triggered settings: ',
-          settings.composite
-        )
-        // 通过标识符获取按钮，使用类型断言
-        const button = BUTTON_MAP.get(currentPanel)
-        if (button && button.chatCellData) {
-          console.log(
-            'NoteChat: command triggered chatButton id: ',
-            button.creationTimestamp
-          )
-          return button.chatCellData()
-        }
+function addChatCellDataCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:chat-cell-data'
+  app.commands.addCommand(command, {
+    label: 'Chat with AI Assistant',
+    icon: atomIconNoteChat,
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys: Alt + C
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt C'],
-      selector: '.jp-Notebook'
-    })
+      console.log('NoteChat: command triggered settings: ', settings.composite)
+      // 通过标识符获取按钮，使用类型断言
+      const button = BUTTON_MAP.get(currentPanel)
+      if (button && button.chatCellData) {
+        console.log('NoteChat: command triggered chatButton id: ', button.creationTimestamp)
+        return button.chatCellData()
+      }
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys: Alt + C
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt C'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** Add command: chat cell data range with AI Assistant: Run All */
-function addChatCellDataAllCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:chat-cell-data-all'
-    app.commands.addCommand(command, {
-      label: 'Run All Cells with AI Assistant',
-      icon: runAllIconNoteChat,
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        return chatCellDataRange(currentPanel, settings, null, null, null)
+function addChatCellDataAllCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:chat-cell-data-all'
+  app.commands.addCommand(command, {
+    label: 'Run All Cells with AI Assistant',
+    icon: runAllIconNoteChat,
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt R', 'Alt T'],
-      selector: '.jp-Notebook'
-    })
+      return chatCellDataRange(currentPanel, settings, null, null, null)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt R', 'Alt T'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** Add command: chat cell data range with AI Assistant: Run All Above */
-function addChatCellDataAboveCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:chat-cell-data-above'
-    app.commands.addCommand(command, {
-      label: 'Run Above Cells with AI Assistant',
-      icon: runAboveIconNoteChat,
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        const endIndex = currentPanel.content.activeCellIndex
-        return chatCellDataRange(currentPanel, settings, null, endIndex, null)
+function addChatCellDataAboveCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:chat-cell-data-above'
+  app.commands.addCommand(command, {
+    label: 'Run Above Cells with AI Assistant',
+    icon: runAboveIconNoteChat,
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt R', 'Alt B'],
-      selector: '.jp-Notebook'
-    })
+      const endIndex = currentPanel.content.activeCellIndex
+      return chatCellDataRange(currentPanel, settings, null, endIndex, null)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt R', 'Alt B'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** Add command: chat cell data range with AI Assistant: Run All Below */
-function addChatCellDataBelowCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:chat-cell-data-below'
-    app.commands.addCommand(command, {
-      label: 'Run Below Cells with AI Assistant',
-      icon: runBelowIconNoteChat,
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        const startIndex = currentPanel.content.activeCellIndex
-        return chatCellDataRange(currentPanel, settings, startIndex, null, null)
+function addChatCellDataBelowCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:chat-cell-data-below'
+  app.commands.addCommand(command, {
+    label: 'Run Below Cells with AI Assistant',
+    icon: runBelowIconNoteChat,
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt R', 'Alt F'],
-      selector: '.jp-Notebook'
-    })
+      const startIndex = currentPanel.content.activeCellIndex
+      return chatCellDataRange(currentPanel, settings, startIndex, null, null)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt R', 'Alt F'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** Add command: chat cell data range with AI Assistant: Run All Selected */
-function addChatCellDataSelectedCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:chat-cell-data-selected'
-    app.commands.addCommand(command, {
-      label: 'Run Selected Cells with AI Assistant',
-      icon: runSelectedIconNoteChat,
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        const selectedCellIdArr = []
-        for (let i = 0; i < currentPanel.content.widgets.length; i++) {
-          const cell = currentPanel.content.widgets[i]
-          if (currentPanel.content.isSelectedOrActive(cell)) {
-            selectedCellIdArr.push(i)
-          }
-        }
-        console.log('NoteChat: selected cells index: ', selectedCellIdArr)
-        if (selectedCellIdArr.length === 0) {
-          return
-        }
-        return chatCellDataRange(currentPanel, settings, null, null, selectedCellIdArr)
+function addChatCellDataSelectedCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:chat-cell-data-selected'
+  app.commands.addCommand(command, {
+    label: 'Run Selected Cells with AI Assistant',
+    icon: runSelectedIconNoteChat,
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys: Alt + C
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt R', 'Alt S'],
-      selector: '.jp-Notebook'
-    })
+      const selectedCellIdArr = []
+      for (let i = 0; i < currentPanel.content.widgets.length; i++) {
+        const cell = currentPanel.content.widgets[i]
+        if (currentPanel.content.isSelectedOrActive(cell)) {
+          selectedCellIdArr.push(i)
+        }
+      }
+      console.log('NoteChat: selected cells index: ', selectedCellIdArr)
+      if (selectedCellIdArr.length === 0) {
+        return
+      }
+      return chatCellDataRange(currentPanel, settings, null, null, selectedCellIdArr)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys: Alt + C
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt R', 'Alt S'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** Add command: Help Notification */
-function addHelpCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:help'
-    app.commands.addCommand(command, {
-      label: 'Help: How to Use NoteChat',
-      icon: helpIconNoteChat,
-      execute: async () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-
-        let displayString = SETTINGS.help + '--------<br>参数解析<br>'
-
-        const cellString = currentPanel.content.activeCell?.model.toJSON().source?.toString() ?? ''
-        const lines = cellString.trim().split('\n')
-        let params = await parseChatParams(lines[0] ?? '')
-        let counts = 0
-        let paramString = ''
-        for (const key in params) {
-          paramString += `${key}: ${params[key]}<br>`
-          counts++
-        }
-        
-        displayString = displayString + `一共${counts}个参数<br><br>`
-        displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
-
-        const refs = await parseCellReferences(params[SETTINGS.cell_param_name_refs], currentPanel.content.activeCellIndex, currentPanel.content.widgets.length - 1, SETTINGS.num_prev_cells)
-
-        displayString = displayString + `一共${refs.length}个id<br><br>`
-        displayString = displayString + refs.join('<br>')
-        
-        displayString = displayString + `<br><br>--------当前id ${currentPanel.content.activeCellIndex} --------<br>传入后端的cell<br>`
-        
-        const cellJsonArr = await getCellJsonArrById(currentPanel, refs)
-        
-
-        for (let i = 0; i < cellJsonArr.length; i++) {
-          displayString = displayString + cellJsonArr[i].id +' : ' + await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]) + '<br>'
-          console.log('NoteChat: cellJsonArr: ', cellJsonArr[i])
-        }
-        
-
-        showCustomNotification(displayString, currentPanel, 2000)
-        // showCustomNotification(SETTINGS.help, currentPanel, 2000)
+function addHelpCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:help'
+  app.commands.addCommand(command, {
+    label: 'Help: How to Use NoteChat',
+    icon: helpIconNoteChat,
+    execute: async () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys: Alt + C
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt H'],
-      selector: '.jp-Notebook'
-    })
+
+      let displayString = SETTINGS.help + '--------<br>参数解析<br>'
+
+      const cellString = currentPanel.content.activeCell?.model.toJSON().source?.toString() ?? ''
+      const lines = cellString.trim().split('\n')
+      const params = await parseChatParams(lines[0] ?? '')
+      let counts = 0
+      let paramString = ''
+      for (const key in params) {
+        paramString += `${key}: ${params[key]}<br>`
+        counts++
+      }
+
+      displayString = displayString + `一共${counts}个参数<br><br>`
+      displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
+
+      const refs = await parseCellReferences(params[SETTINGS.cell_param_name_refs], currentPanel.content.activeCellIndex, currentPanel.content.widgets.length - 1, SETTINGS.num_prev_cells)
+
+      displayString = displayString + `一共${refs.length}个id<br><br>`
+      displayString = displayString + refs.join('<br>')
+
+      displayString = displayString + `<br><br>--------当前id ${currentPanel.content.activeCellIndex} --------<br>传入后端的cell<br>`
+
+      const cellJsonArr = await getCellJsonArrById(currentPanel, refs)
+
+      for (let i = 0; i < cellJsonArr.length; i++) {
+        displayString = displayString + cellJsonArr[i].id + ' : ' + (await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])) + '<br>'
+        console.log('NoteChat: cellJsonArr: ', cellJsonArr[i])
+      }
+
+      showCustomNotification(displayString, currentPanel, 2000)
+      // showCustomNotification(SETTINGS.help, currentPanel, 2000)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys: Alt + C
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt H'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** Add command: 添加用户对话框 */
-function addUserCellCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:add-user-cell'
-    app.commands.addCommand(command, {
-      label: 'Add a User Chat Cell Below',
-      icon: addUserCellIconNoteChat,
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        insertNewMdCellBelow(currentPanel, '', `${SETTINGS.user_name}\n\n`, false, false)
+function addUserCellCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:add-user-cell'
+  app.commands.addCommand(command, {
+    label: 'Add a User Chat Cell Below',
+    icon: addUserCellIconNoteChat,
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys: Alt + C
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt U'],
-      selector: '.jp-Notebook'
-    })
+      insertNewMdCellBelow(currentPanel, '', `${SETTINGS.user_name}\n\n`, false, false)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys: Alt + C
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt U'],
+    selector: '.jp-Notebook'
+  })
 }
 
 /** 将button和panel绑定起来 */
 function addButtonWidgetToPanel(panel: NotebookPanel, settings: ISettingRegistry.ISettings) {
   let button = BUTTON_MAP.get(panel)
   if (button) {
-    console.log(
-      'NoteChat: chatButton already on toolbar, id: ',
-      button.creationTimestamp
-    )
+    console.log('NoteChat: chatButton already on toolbar, id: ', button.creationTimestamp)
     return
   }
   // 如果没有按钮，则创建一个
@@ -404,10 +336,7 @@ function addButtonWidgetToPanel(panel: NotebookPanel, settings: ISettingRegistry
   panel.disposed.connect(() => {
     // 当 panel 被销毁时，从 Map 中移除它的引用
     BUTTON_MAP.delete(panel)
-    console.log(
-      'NoteChat: panel and chatButton binding BUTTON_MAP size: ',
-      BUTTON_MAP.size
-    )
+    console.log('NoteChat: panel and chatButton binding BUTTON_MAP size: ', BUTTON_MAP.size)
   })
 }
 
@@ -417,11 +346,7 @@ class RotatingToolbarButton extends ToolbarButton {
   private panel: NotebookPanel | null
   private settings: ISettingRegistry.ISettings | null
 
-  constructor(
-    panel: NotebookPanel,
-    settings: ISettingRegistry.ISettings,
-    ...args: any[]
-  ) {
+  constructor(panel: NotebookPanel, settings: ISettingRegistry.ISettings, ...args: any[]) {
     super(...args)
     this.creationTimestamp = Date.now()
     this.panel = panel
@@ -457,10 +382,7 @@ class RotatingToolbarButton extends ToolbarButton {
   public chatCellData = async (): Promise<void> => {
     // 如果AI正忙，则弹框提示
     if (this.panel?.model?.getMetadata('is_chatting')) {
-      showCustomNotification(
-        'Please wait a moment, the AI Assistant is responding...',
-        this.panel, 2000
-      )
+      showCustomNotification('Please wait a moment, the AI Assistant is responding...', this.panel, 2000)
       return
     }
 
@@ -472,23 +394,17 @@ class RotatingToolbarButton extends ToolbarButton {
 }
 
 // 和AI对话的主逻辑，这里除了在notebook中插入生成的单元格外，较少进行button等UI界面逻辑的处理
-const chatCellData = async (
-  panel: NotebookPanel | null,
-  userSettings: ISettingRegistry.ISettings | null
-): Promise<void> => {
+const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingRegistry.ISettings | null): Promise<void> => {
   if (!panel || !userSettings) {
     return
   }
 
   // 设置is_chatting状态，可以防止用户重复点击或重复执行命令
   panel?.model?.setMetadata('is_chatting', true)
-  console.log(
-    'NoteChat: START chatting, notebook is_chatting status: ',
-    panel?.model?.getMetadata('is_chatting')
-  )
-  
+  console.log('NoteChat: START chatting, notebook is_chatting status: ', panel?.model?.getMetadata('is_chatting'))
+
   // 初始化一个空对象来存储解析出的参数
-  const userSettingParams: { [key: string]: any } = {...SETTINGS, ...CHAT_PARAMS}
+  const userSettingParams: { [key: string]: any } = { ...SETTINGS, ...CHAT_PARAMS }
   // 获取用户设置
   const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
   userSettingParams['num_prev_cells'] = numPrevCells
@@ -504,16 +420,11 @@ const chatCellData = async (
   let aiParamString = ''
   let userParamString = ''
   // 向上寻找直到找到一个不是AI回复的单元格
-  while (
-    first_line.startsWith(SETTINGS.ai_name)
-  ) {
+  while (first_line.startsWith(SETTINGS.ai_name)) {
     // 解析AI单元格所设定的@param
     aiParamString = first_line.trim()
     activeCellIndex = activeCellIndex - 1
-    console.log(
-      'NoteChat: this is an AI Assistant reply, jump to previous cell for question, previous id : ',
-      activeCellIndex
-    )
+    console.log('NoteChat: this is an AI Assistant reply, jump to previous cell for question, previous id : ', activeCellIndex)
     panel.content.activeCellIndex = activeCellIndex
     first_line = panel.content.activeCell?.model.toJSON().source?.toString().trim().split('\n')[0] ?? ''
   }
@@ -523,18 +434,17 @@ const chatCellData = async (
   userParamString = first_line.trim()
   const aiCellParams = await parseChatParams(aiParamString)
   const userCellParams = await parseChatParams(userParamString)
-  
+
   // 将userParams中的参数覆盖到aiParams，再覆盖到userSettingParams
   const cellParams = { ...userSettingParams, ...aiCellParams, ...userCellParams }
   cellParams['active_cell_index'] = activeCellIndex
 
   // 获取参数指定的上下文id列表
   const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, numPrevCells)
-  
+
   // 获取id相应的cell json列表
   const cellJsonArr = await getCellJsonArrById(panel, refs)
-  
-  
+
   /** TO DO: 用户添加/删除了单元格，index改变错位，需要额外的监听处理，比较复杂，对于常见用户不一定重要，暂时不处理 */
 
   // 访问服务端
@@ -544,12 +454,7 @@ const chatCellData = async (
   panel.content.activeCellIndex = activeCellIndex
 
   // 如果下方单元格中如果是AI回复内容，则替换原内容，否则插入新单元格
-  if (
-    panel.content.widgets[activeCellIndex + 1]?.model
-      .toJSON()
-      .source?.toString()
-      .startsWith(SETTINGS.ai_name)
-  ) {
+  if (panel.content.widgets[activeCellIndex + 1]?.model.toJSON().source?.toString().startsWith(SETTINGS.ai_name)) {
     // 下方单元格中含有AI_NAME，则替换原内容
     console.log(`NoteChat: replace below md cell content containing ${SETTINGS.ai_name}`)
     // 如果ai param有过定义不为空，则还原，如果未定义则不带任何参数
@@ -565,17 +470,11 @@ const chatCellData = async (
 
   // 解锁is_chatting状态，用户可以继续提问
   panel?.model?.setMetadata('is_chatting', false)
-  console.log(
-    'NoteChat: END chatting, notebook is_chatting status: ',
-    panel?.model?.getMetadata('is_chatting')
-  )
+  console.log('NoteChat: END chatting, notebook is_chatting status: ', panel?.model?.getMetadata('is_chatting'))
 }
 
 // 获取指定范围数值id的单元格的json数据
-const getCellJsonArrById = async (
-  panel: NotebookPanel | null,
-  cellRefs: any[] | null = null
-): Promise<any[]> => {
+const getCellJsonArrById = async (panel: NotebookPanel | null, cellRefs: any[] | null = null): Promise<any[]> => {
   if (!panel) {
     return []
   }
@@ -589,18 +488,18 @@ const getCellJsonArrById = async (
     cellJson['num_id'] = i
     /** 遍历每个 cellJson?.outputs?里的output，如果output中有data字段，且该data字段有"text/html"，则置为[] */
     if (Array.isArray(cellJson.outputs)) {
-      for (let output of cellJson.outputs) {
+      for (const output of cellJson.outputs) {
         // 使用类型断言强制将 output 视为包含 data 属性的类型
-        const outputWithData = output as { data: { [key: string]: any } };
-    
+        const outputWithData = output as { data: { [key: string]: any } }
+
         if (outputWithData.data) {
           // 获取所有键名
-          const dataKeys = Object.keys(outputWithData.data);
-    
+          const dataKeys = Object.keys(outputWithData.data)
+
           // 遍历每个键，删除不是 image/png、text/plain 或 image/jpeg 的键
-          for (let key of dataKeys) {
+          for (const key of dataKeys) {
             if (!SETTINGS.data_types.includes(key)) {
-              delete outputWithData.data[key];
+              delete outputWithData.data[key]
             }
           }
         }
@@ -613,12 +512,7 @@ const getCellJsonArrById = async (
 }
 
 // 访问服务器获取AI回复
-const getChatCompletions = async (
-  cellJsonArr: any[],
-  cellParams: any
-): Promise<string> => {
-  
-
+const getChatCompletions = async (cellJsonArr: any[], cellParams: any): Promise<string> => {
   // 如果cellContext为null、undefined、空字符串''、数字0、或布尔值false时，不访问服务器，直接返回
   if (!cellJsonArr) {
     return 'No context is provided to the assistant...'
@@ -649,10 +543,7 @@ const getChatCompletions = async (
 
     //服务端异常处理
     if (!serverResponse.ok) {
-      console.error(
-        'NoteChat: ERROR in sending data to the server: ',
-        serverResponse.statusText
-      )
+      console.error('NoteChat: ERROR in sending data to the server: ', serverResponse.statusText)
       return 'Error in sending data to the server...'
     }
     const res = await serverResponse.json()
@@ -672,13 +563,7 @@ const getChatCompletions = async (
 }
 
 // 在当前活动单元格下方插入新的Markdown单元格，并执行，这样AI回复界面更美观
-const insertNewMdCellBelow = async (
-  panel: NotebookPanel,
-  newText: string,
-  heading: string = '',
-  ref: boolean = true,
-  needRun: boolean = true
-): Promise<void> => {
+const insertNewMdCellBelow = async (panel: NotebookPanel, newText: string, heading: string = '', ref: boolean = true, needRun: boolean = true): Promise<void> => {
   NotebookActions.insertBelow(panel.content)
   // 新插入的单元格，要先从code转化为markdown
   const newCell = panel.content.activeCell
@@ -690,10 +575,7 @@ const insertNewMdCellBelow = async (
     // 当cell type从code变为markdown时，id会变，所以需要重新获取
     const changedNewCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
-    const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.ref_name} || ${SETTINGS.ref_name}s["${changedNewCell?.model.toJSON()
-          .id}"]</div>`
-      : ''
+    const tailing = ref ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.ref_name} || ${SETTINGS.ref_name}s["${changedNewCell?.model.toJSON().id}"]</div>` : ''
     // 将单元格的source设置为指定的内容
     changedNewCell.model.sharedModel.setSource(heading + newText + tailing)
     // 运行单元格
@@ -704,13 +586,7 @@ const insertNewMdCellBelow = async (
 }
 
 // 置换下方Markdown单元格，并执行，这样AI回复界面更美观
-const replaceMdCellContentBelow = async (
-  panel: NotebookPanel,
-  newText: string,
-  heading: string = '',
-  ref: boolean = true,
-  needRun: boolean = true
-): Promise<void> => {
+const replaceMdCellContentBelow = async (panel: NotebookPanel, newText: string, heading: string = '', ref: boolean = true, needRun: boolean = true): Promise<void> => {
   NotebookActions.selectBelow(panel.content)
   // 置换单元格内容
   const belowCell = panel.content.activeCell
@@ -722,10 +598,7 @@ const replaceMdCellContentBelow = async (
     // 当cell type从code变为markdown时，id会变，所以需要重新获取
     const changedBelowCell = panel.content.activeCell
     //如果ref为true，则tailing输出指定ref格式，否则为空
-    const tailing = ref
-      ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.ref_name} || ${SETTINGS.ref_name}s["${changedBelowCell?.model.toJSON()
-          .id}"]</div>`
-      : ''
+    const tailing = ref ? `\n\n<div style="text-align: right; color: lightgray; font-style: italic; font-size: x-small;">${SETTINGS.ref_name} || ${SETTINGS.ref_name}s["${changedBelowCell?.model.toJSON().id}"]</div>` : ''
     // 将单元格的source设置为指定的内容
     changedBelowCell.model.sharedModel.setSource(heading + newText + tailing)
     // 运行单元格
@@ -736,21 +609,12 @@ const replaceMdCellContentBelow = async (
 }
 
 // 按照用户指定的cell id范围，运行之间所有的cell，自动识别需要AI Assistant的回复
-const chatCellDataRange = async (
-  panel: NotebookPanel | null,
-  userSettings: ISettingRegistry.ISettings | null,
-  startIndex: number | null,
-  endIndex: number | null,
-  selectedCellIdArr: number[] | null = null
-): Promise<void> => {
+const chatCellDataRange = async (panel: NotebookPanel | null, userSettings: ISettingRegistry.ISettings | null, startIndex: number | null, endIndex: number | null, selectedCellIdArr: number[] | null = null): Promise<void> => {
   if (!panel || !userSettings) {
     return
   }
 
-  showCustomNotification(
-    'Start running cells with AI Assistant, please do not add or delete any cells during running...',
-    panel, 2000
-  )
+  showCustomNotification('Start running cells with AI Assistant, please do not add or delete any cells during running...', panel, 2000)
 
   console.log('NoteChat: START run cells with chatting')
   const maxIndex = panel.content.widgets.length - 1
@@ -765,7 +629,6 @@ const chatCellDataRange = async (
   // 先找到需要运行的cell，然后再一个个运行，从后向前找更方便，这样有多个Assistant的回复，就可以顺利跳开
   const runCellTypes = []
   for (let i = endIndex; i >= startIndex; i--) {
-
     // 选择模式，只运行范围中选中的单元格，所以selectedArray不为空，且该id不在选择范围内，则跳过
     if (selectedCellIdArr && !selectedCellIdArr.includes(i)) {
       continue
@@ -788,10 +651,7 @@ const chatCellDataRange = async (
   console.log('NoteChat: run all cells, id: ', runCellTypes)
 
   const button = BUTTON_MAP.get(panel)
-  console.log(
-    'NoteChat: run all cells triggered chatButton id: ',
-    button.creationTimestamp
-  )
+  console.log('NoteChat: run all cells triggered chatButton id: ', button.creationTimestamp)
 
   // 遍历数组，运行单元格
   for (const cell of runCellTypes) {
@@ -833,12 +693,8 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // 读取所有markdown的信息至kernel中
     // if (cell.model.type === 'markdown') {
     const source = cell.model.toJSON().source?.toString() ?? ''
-    const processedSource = await processCellSourceString(
-      source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]
-    )
-    codes.push(
-      `${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
-    )
+    const processedSource = await processCellSourceString(source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])
+    codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`)
     lastRef = `${SETTINGS.ref_name} = """${processedSource}"""`
     // }
   }
@@ -856,67 +712,48 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
 }
 
 /** Add command: 展示cell的序号和唯一编号 */
-function addShowCellRefCommand(
-  app: JupyterFrontEnd,
-  palette: ICommandPalette,
-  notebookTracker: INotebookTracker,
-  settings: ISettingRegistry.ISettings) {
-    const command = 'jupyterlab-notechat:show-cell-ref'
-    app.commands.addCommand(command, {
-      label: 'Show & Copy Cell ID for Ref',
-      icon: infoIconNoteChat,
-      iconClass: 'show-cell-ref',
-      execute: () => {
-        const currentPanel = notebookTracker.currentWidget
-        if (!currentPanel) {
-          return
-        }
-        return showCellRef(currentPanel)
+function addShowCellRefCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settings: ISettingRegistry.ISettings) {
+  const command = 'jupyterlab-notechat:show-cell-ref'
+  app.commands.addCommand(command, {
+    label: 'Show & Copy Cell ID for Ref',
+    icon: infoIconNoteChat,
+    iconClass: 'show-cell-ref',
+    execute: () => {
+      const currentPanel = notebookTracker.currentWidget
+      if (!currentPanel) {
+        return
       }
-    })
-    // Add command to the palette
-    palette.addItem({ command, category: 'notechat' })
-    // Add hotkeys: Alt + C
-    app.commands.addKeyBinding({
-      command,
-      keys: ['Alt Q'],
-      selector: '.jp-Notebook'
-    })
+      return showCellRef(currentPanel)
+    }
+  })
+  // Add command to the palette
+  palette.addItem({ command, category: 'notechat' })
+  // Add hotkeys: Alt + C
+  app.commands.addKeyBinding({
+    command,
+    keys: ['Alt Q'],
+    selector: '.jp-Notebook'
+  })
 }
 
 // 显示当前活动单元格的序号和唯一id
-const showCellRef = async (
-  panel: NotebookPanel | null
-): Promise<void> => {
+const showCellRef = async (panel: NotebookPanel | null): Promise<void> => {
   if (!panel) {
     return
   }
   const UniqueId = panel.content.activeCell?.model.toJSON().id
   const SequetialId = panel.content.activeCellIndex
-  
-  showCustomNotification(
-    `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId}`,
-    panel, 2000
-  )
+
+  showCustomNotification(`Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId}`, panel, 2000)
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(`_ref || _refs["${UniqueId}"] || ${SequetialId}`)
   }
-
 }
 
-async function sendOutputToKernel(
-  notebookTracker: INotebookTracker,
-  sender: NotebookActions,
-  args: { notebook: Notebook; cell: Cell }) {
-
+async function sendOutputToKernel(notebookTracker: INotebookTracker, sender: NotebookActions, args: { notebook: Notebook; cell: Cell }) {
   const { notebook, cell } = args
-  console.log(
-    'NoteChat: executed cell & id: ',
-    cell.model.toJSON().source?.toString(),
-    '\nid: ',
-    cell.model.toJSON().id
-  )
+  console.log('NoteChat: executed cell & id: ', cell.model.toJSON().source?.toString(), '\nid: ', cell.model.toJSON().id)
 
   // 查找与 executedNotebook 匹配的 NotebookPanel
   const panel = notebookTracker.find(notebookPanel => {
@@ -926,14 +763,11 @@ async function sendOutputToKernel(
   if (panel) {
     // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
     const source = cell.model.toJSON().source?.toString() ?? ''
-    const processedSource = await processCellSourceString(
-      source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`]
-    )
+    const processedSource = await processCellSourceString(source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])
     panel.sessionContext.session?.kernel?.requestExecute({
       code: `${SETTINGS.ref_name} = """${processedSource}"""\n${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
     })
   }
 }
-
 
 export default plugin
