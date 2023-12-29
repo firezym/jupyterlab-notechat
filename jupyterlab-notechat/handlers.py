@@ -1,4 +1,4 @@
-import json, os, re, logging
+import json, os, re, logging, copy
 import httpx, asyncio
 
 from jupyter_server.base.handlers import APIHandler
@@ -36,12 +36,8 @@ class ChatHandler(APIHandler):
             # 处理cell_json_arr
             messages, has_image = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name)
 
-            print(messages)
-            
             model = data.get('model', "gpt-4-1106-preview")
             vision_model = data.get('vision_model', "gpt-4-vision-preview")
-            if has_image:
-                model = vision_model
             response_format = data.get('response_format', "text")
             temperature = data.get('temperature', 0.3)
             timeout = data.get('timeout', 300)
@@ -49,8 +45,26 @@ class ChatHandler(APIHandler):
             delay = data.get('delay', 1)
 
             # 调用openai_chat函数
-            response = await self.openai_chat(messages, model, response_format, temperature, timeout, retries, delay)
+            if has_image:
+                print(f"has_image: {has_image}  ||  model: {vision_model}")
+                print_messages = copy.deepcopy(messages)
+                for message in print_messages:
+                    if isinstance(message["content"], list):
+                        for content in message["content"]:
+                            if content["type"] == "image_url":
+                                content["image_url"] = content["image_url"][0:20] + "..." + content["image_url"][-20:]
+                print(print_messages)
+                # print(messages)
+                # create a dummy response
+                # response = {}
+                response = await self.openai_chat(messages, vision_model, 4096, None, temperature, timeout, retries, delay)
+            else:
+                print(f"has_image: {has_image}  ||  model: {model}")
+                print(messages)
+                response = await self.openai_chat(messages, model, None, response_format, temperature, timeout, retries, delay)
+
             print(response)
+
             self.finish(json.dumps(response))
 
         except Exception as e:
@@ -58,7 +72,7 @@ class ChatHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": "API请求处理出错: " + str(e)}))
 
-    async def openai_chat(self, messages, model="gpt-4-1106-preview", response_format="text", temperature=0.3, timeout=300, retries=3, delay=1):
+    async def openai_chat(self, messages, model="gpt-4-1106-preview", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1):
         """
         使用OpenAI API进行对话生成
 
@@ -67,7 +81,9 @@ class ChatHandler(APIHandler):
 
             model: 模型名称，gpt-4-1106-preview，gpt-3.5-turbo-1106, gpt-3.5-turbo
 
-            response_format: 响应格式，值为`text`或`json_object`
+            max_tokens: 最大生成长度
+
+            response_format: 响应格式，值为`text`、`json_object`、None
 
             temperature: 温度参数
 
@@ -86,8 +102,11 @@ class ChatHandler(APIHandler):
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "response_format": {"type": response_format},
         }
+        if max_tokens is not None:
+            data["max_tokens"] = max_tokens
+        if response_format is not None:
+            data["response_format"] = {"type": response_format}
         # proxy = os.environ["http_proxy"]
         # async with httpx.AsyncClient(proxies={"http://": "http://"+proxy, "https://": "https://"+proxy}) as client:
         async with httpx.AsyncClient() as client:
@@ -159,14 +178,21 @@ class ChatHandler(APIHandler):
                     for _, data in cell["attachments"].items():
                         # 处理图片类型附件
                         if "image/png" in data and len(data["image/png"])>0:
-                            content_image.append({"type": "image_url", 
-                                                    "image_url": data["image/png"]})
+                            content_image.append({"type": "image_url",
+                                                  "image_url": f"data:image/png;base64," + data["image/png"]})
                         elif "image/jpeg" in data and len(data["image/jpeg"])>0:
-                            content_image.append({"type": "image_url", 
-                                                    "image_url": data["image/jpeg"]})
+                            content_image.append({"type": "image_url",
+                                                  "image_url": f"data:image/jpeg;base64," + data["image/jpeg"]})
+                        elif "image/gif" in data and len(data["image/gif"])>0:
+                            content_image.append({"type": "image_url",
+                                                  "image_url": f"data:image/gif;base64," + data["image/gif"]})
+                        elif "image/webp" in data and len(data["image/webp"])>0:
+                            content_image.append({"type": "image_url",
+                                                  "image_url": f"data:image/webp;base64," + data["image/webp"]})
+                        # 目前openai vision不支持bmp格式
                         elif "image/bmp" in data and len(data["image/bmp"])>0:
-                            content_image.append({"type": "image_url", 
-                                                    "image_url": data["image/bmp"]})
+                            content_image.append({"type": "image_url",
+                                                  "image_url": f"data:image/bmp;base64," + data["image/bmp"]})
             
             # 如果是raw单元格，目前暂时没有特殊处理
             if cell["cell_type"] == "raw":
@@ -195,7 +221,7 @@ class ChatHandler(APIHandler):
                                 # 一般是plotly的微缩图片
                                 if "image/png" in output["data"] and len(output["data"]["image/png"])>0:
                                     content_image.append({"type": "image_url", 
-                                                          "image_url": output["data"]["image/png"]})
+                                                          "image_url": f"data:image/png;base64," + output["data"]["image/png"]})
 
             # 如果有图片，则标记为有图片
             if len(content_image) > 0:
