@@ -46,8 +46,19 @@ const plugin: JupyterFrontEndPlugin<void> = {
             // 初始化panel完成后，执行自定义的初始化
             // 刷新后要重新初始化panel，将notebook设定为非chatting状态，将所有markdown的信息放入kernel中
             panel.sessionContext.ready.then(() => {
+              console.log(`NoteChat: frontend refresh, session ready, initialize panel, panel id: ${panel.id}`)
               initializePanel(panel)
             })
+
+            // 监听内核状态的变化，如果有restart，要重新initialize一下panel中参数的状态
+            // 目前就restart的时候restarting有用，其他两个状态暂时没用 || status==='starting' || status==='autorestarting'
+            panel.sessionContext.statusChanged.connect((_, status) => {
+              if (status === 'restarting') {
+                console.log(`NoteChat: kernel ${status}, re-initialize panel, panel id: ${panel.id}`)
+                initializePanel(panel)
+              }
+            })
+
             // console.log('notechat: metadata state before: ', panel.model?.getMetadata('is_chatting'))
             // panel.model?.setMetadata('is_chatting', false)
             // tracker.currentWidget?.model?.setMetadata('is_chatting', false) //也不行
