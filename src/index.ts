@@ -493,7 +493,9 @@ const chatCellData = async (
   const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
   userSettingParams['num_prev_cells'] = numPrevCells
   userSettingParams['prompt'] = (userSettings.get('prompt').composite as string) || CHAT_PARAMS.prompt
-  
+  userSettingParams['model'] = (userSettings.get('model').composite as string) || CHAT_PARAMS.model
+  userSettingParams['vision_model'] = (userSettings.get('vision_model').composite as string) || CHAT_PARAMS.vision_model
+
   // 获取提问单元格的id
   // 默认为当前活动单元格的id
   let activeCellIndex = panel.content.activeCellIndex
@@ -550,7 +552,12 @@ const chatCellData = async (
   ) {
     // 下方单元格中含有AI_NAME，则替换原内容
     console.log(`NoteChat: replace below md cell content containing ${SETTINGS.ai_name}`)
-    await replaceMdCellContentBelow(panel, responseText, `${SETTINGS.ai_name}\n\n`, true, true)
+    // 如果ai param有过定义不为空，则还原，如果未定义则不带任何参数
+    if (aiParamString) {
+      await replaceMdCellContentBelow(panel, responseText, `${aiParamString}\n\n`, true, true)
+    } else {
+      await replaceMdCellContentBelow(panel, responseText, `${SETTINGS.ai_name}\n\n`, true, true)
+    }
   } else {
     // 如果下方没有单元格或不含有AI回复标记，则插入新单元格
     await insertNewMdCellBelow(panel, responseText, `${SETTINGS.ai_name}\n\n`, true, true)
@@ -727,8 +734,6 @@ const replaceMdCellContentBelow = async (
     }
   }
 }
-
-
 
 // 按照用户指定的cell id范围，运行之间所有的cell，自动识别需要AI Assistant的回复
 const chatCellDataRange = async (
