@@ -213,7 +213,7 @@ class ChatHandler(APIHandler):
                             clean_traceback = [remove_ansi_codes(text) for text in output["traceback"]]
                             clean_traceback_text = "\n".join(clean_traceback).strip()
                             output_text.append(f'''Error Name:{output["ename"]}\nError Value:{output["evalue"]}\nError Traceback:{clean_traceback_text}''')
-                        elif output["output_type"] == "execute_result":
+                        elif output["output_type"] == "execute_result" or output["output_type"] == "display_data":
                             if "data" in output and len(output["data"])>0:
                                 # 一般是变量输出的值
                                 if "text/plain" in output["data"] and len(output["data"]["text/plain"])>0:
