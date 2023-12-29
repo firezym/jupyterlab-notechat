@@ -624,7 +624,7 @@ const getChatCompletions = async (
       ...cellParams
     }
 
-    console.log('NoteChat: request body: ', JSON.stringify(requestBody))
+    // console.log('NoteChat: request body: ', JSON.stringify(requestBody))
 
     // 服务端交互
     const serverSettings = ServerConnection.makeSettings({})
@@ -650,7 +650,14 @@ const getChatCompletions = async (
     }
     const res = await serverResponse.json()
     console.log('NoteChat: server response:', res)
-    return res.choices[0].message.content
+
+    // 正常结果
+    if (res.choices[0].message.content) {
+      return res.choices[0].message.content
+    } else {
+      // 非正常结果
+      return JSON.stringify(res)
+    }
   } catch (error) {
     console.error('NoteChat: ERROR in function getChatCompletions: ', error)
     return 'Error in function getChatCompletions...'
