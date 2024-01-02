@@ -9,7 +9,7 @@ export const SETTINGS = {
   ref_name: '_ref',
   num_prev_cells: 2,
   help: 'How to Use NoteChat<br><br>',
-  data_types: ['text/plain', 'image/png', 'image/jpeg']
+  data_types: ['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']
 }
 
 // 该参数主要和AI模型有关

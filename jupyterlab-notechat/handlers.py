@@ -5,6 +5,14 @@ from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 import tornado
 
+# 创建一个名为 'notechat_logger' 的专用日志记录器
+notechat_logger = logging.getLogger('notechat_logger')
+notechat_logger.setLevel(logging.INFO)
+notechat_fh = logging.FileHandler('notechat.log', encoding="utf-8")
+notechat_fh.setFormatter(logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+notechat_logger.addHandler(notechat_fh)
+notechat_logger.info(f"###### IT IS A GOOD DAY TODAY, LET'S FIND 42 !! ######")
+
 
 class RouteHandler(APIHandler):
     # The following decorator should be present on all verb methods (head, get, post,
@@ -12,6 +20,7 @@ class RouteHandler(APIHandler):
     # Jupyter server
     @tornado.web.authenticated
     def get(self):
+        notechat_logger.info(f"###### TEST ENDPOINT: /jupyterlab-notechat/get-example ######")
         self.finish(json.dumps({
             "data": "This is /jupyterlab-notechat/get-example endpoint! You are authenticated!"
         }))
@@ -28,10 +37,6 @@ class ChatHandler(APIHandler):
             ai_name = data.get('ai_name', "**assistant**")
             user_name = data.get('user_name', "**user**")
             ref_name = data.get('ref_name', "_ref")
-
-            # print(cell_json_arr)
-
-            # self.finish(json.dumps({"data": f"This is /jupyterlab-notechat/chat endpoint! You are authenticated!{data}"}))
             
             # 处理cell_json_arr
             messages, has_image = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name)
@@ -46,24 +51,21 @@ class ChatHandler(APIHandler):
 
             # 调用openai_chat函数
             if has_image:
-                print(f"has_image: {has_image}  ||  model: {vision_model}")
-                print_messages = copy.deepcopy(messages)
-                for message in print_messages:
+                notechat_logger.info(f"### PARAMS ### has_image: {has_image}  ||  model: {vision_model}")
+                logging_messages = copy.deepcopy(messages)
+                for message in logging_messages:
                     if isinstance(message["content"], list):
                         for content in message["content"]:
                             if content["type"] == "image_url":
                                 content["image_url"] = content["image_url"][0:20] + "..." + content["image_url"][-20:]
-                print(print_messages)
-                # print(messages)
-                # create a dummy response
-                # response = {}
+                notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
                 response = await self.openai_chat(messages, vision_model, 4096, None, temperature, timeout, retries, delay)
             else:
-                print(f"has_image: {has_image}  ||  model: {model}")
-                print(messages)
+                notechat_logger.info(f"### PARAMS ### has_image: {has_image}  ||  model: {model}")
+                notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
                 response = await self.openai_chat(messages, model, None, response_format, temperature, timeout, retries, delay)
 
-            print(response)
+            notechat_logger.info(f"### OUTPUT RESPONSE ### {response}")
 
             self.finish(json.dumps(response))
 
@@ -178,21 +180,16 @@ class ChatHandler(APIHandler):
                     for _, data in cell["attachments"].items():
                         # 处理图片类型附件
                         if "image/png" in data and len(data["image/png"])>0:
-                            content_image.append({"type": "image_url",
-                                                  "image_url": f"data:image/png;base64," + data["image/png"]})
+                            content_image.append({"type": "image_url", "image_url": f"data:image/png;base64," + data["image/png"]})
                         elif "image/jpeg" in data and len(data["image/jpeg"])>0:
-                            content_image.append({"type": "image_url",
-                                                  "image_url": f"data:image/jpeg;base64," + data["image/jpeg"]})
+                            content_image.append({"type": "image_url", "image_url": f"data:image/jpeg;base64," + data["image/jpeg"]})
                         elif "image/gif" in data and len(data["image/gif"])>0:
-                            content_image.append({"type": "image_url",
-                                                  "image_url": f"data:image/gif;base64," + data["image/gif"]})
+                            content_image.append({"type": "image_url", "image_url": f"data:image/gif;base64," + data["image/gif"]})
                         elif "image/webp" in data and len(data["image/webp"])>0:
-                            content_image.append({"type": "image_url",
-                                                  "image_url": f"data:image/webp;base64," + data["image/webp"]})
+                            content_image.append({"type": "image_url", "image_url": f"data:image/webp;base64," + data["image/webp"]})
                         # 目前openai vision不支持bmp格式
-                        elif "image/bmp" in data and len(data["image/bmp"])>0:
-                            content_image.append({"type": "image_url",
-                                                  "image_url": f"data:image/bmp;base64," + data["image/bmp"]})
+                        # elif "image/bmp" in data and len(data["image/bmp"])>0:
+                        #     content_image.append({"type": "image_url", "image_url": f"data:image/bmp;base64," + data["image/bmp"]})
             
             # 如果是raw单元格，目前暂时没有特殊处理
             if cell["cell_type"] == "raw":
@@ -220,8 +217,13 @@ class ChatHandler(APIHandler):
                                     output_text.append(output["data"]["text/plain"].strip())
                                 # 一般是plotly的微缩图片
                                 if "image/png" in output["data"] and len(output["data"]["image/png"])>0:
-                                    content_image.append({"type": "image_url", 
-                                                          "image_url": f"data:image/png;base64," + output["data"]["image/png"]})
+                                    content_image.append({"type": "image_url", "image_url": f"data:image/png;base64," + output["data"]["image/png"]})
+                                elif "image/jpeg" in output["data"] and len(output["data"]["image/jpeg"])>0:
+                                    content_image.append({"type": "image_url", "image_url": f"data:image/jpeg;base64," + output["data"]["image/jpeg"]})
+                                elif "image/gif" in output["data"] and len(output["data"]["image/gif"])>0:
+                                    content_image.append({"type": "image_url", "image_url": f"data:image/gif;base64," + output["data"]["image/gif"]})
+                                elif "image/webp" in output["data"] and len(output["data"]["image/webp"])>0:
+                                    content_image.append({"type": "image_url", "image_url": f"data:image/webp;base64," + output["data"]["image/webp"]})
 
             # 如果有图片，则标记为有图片
             if len(content_image) > 0:
