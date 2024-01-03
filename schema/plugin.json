@@ -86,8 +86,7 @@
     "prompt": {
       "type": "string",
       "title": "Prompt Instructions for NoteChat AI Assistant",
-      "description": "This prompt will be put in the system message for OpenAI chat completions.",
-      "default": "You are a helpful assistant, especially good at coding and quantitative analysis. You have a good background knowledge in AI, technology, finance, economics, statistics and related fields. Now you are helping the user under a JupyterLab notebook coding environment (format: *.ipynb). You will receive the source codes and outputs of the currently active cell and several preceding cells as your context. Please try to answer the user's questions or solve problems presented in the active cell. Please use simplified Chinese as your primary language to respond :) Switch to English at anytime when it's necessary, or more helpful for understanding and analysis, or instructed to do so."
+      "description": "You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics."
     },
     "num_prev_cells": {
       "type": "integer",
@@ -105,7 +104,31 @@
       "title": "Vision Model",
       "description": "This vision model will be used if there is picture in the context. Currently only png, jpeg, gif and webp formats are supported",
       "default": "gpt-4-vision-preview"
-    }
+    },
+    "use_vision":{
+      "type": "boolean",
+      "title": "Whether to Use Vision Model",
+      "description": "If set to false, text model will be used even if there is picture in the context.",
+      "default": true
+    },
+    "max_input": {
+      "type": "integer",
+      "title": "Number of Max Tokens for Input of One Chat",
+      "description": "Extra messages exceeding this limit will be ignored. Prompt message and active cell content will be preserved by default.",
+      "default": 80000
+    },
+    "max_output": {
+      "type": "integer",
+      "title": "Number of Max Tokens for Chat Response",
+      "description": "Chat completion will stop when response exceeds this limit.",
+      "default": 4096
+    },
+    "temperature": {
+      "type": "number",
+      "title": "The Randomness of the Response",
+      "description": "What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+      "default": 0.5
+    }    
   },
   "additionalProperties": false,
   "type": "object"

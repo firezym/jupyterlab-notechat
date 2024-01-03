@@ -422,6 +422,10 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   userSettingParams['prompt'] = (userSettings.get('prompt').composite as string) || CHAT_PARAMS.prompt
   userSettingParams['model'] = (userSettings.get('model').composite as string) || CHAT_PARAMS.model
   userSettingParams['vision_model'] = (userSettings.get('vision_model').composite as string) || CHAT_PARAMS.vision_model
+  userSettingParams['use_vision'] = (userSettings.get('use_vision').composite as boolean) || CHAT_PARAMS.use_vision
+  userSettingParams['max_input'] = (userSettings.get('max_input').composite as number) || CHAT_PARAMS.max_input
+  userSettingParams['max_output'] = (userSettings.get('max_output').composite as number) || CHAT_PARAMS.max_output
+  userSettingParams['temperature'] = (userSettings.get('temperature').composite as number) || CHAT_PARAMS.temperature
 
   // 获取提问单元格的id
   // 默认为当前活动单元格的id
