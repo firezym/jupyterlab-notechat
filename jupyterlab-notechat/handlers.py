@@ -38,24 +38,24 @@ class ChatHandler(APIHandler):
             ai_name = data.get("ai_name", "**assistant**")
             user_name = data.get("user_name", "**user**")
             ref_name = data.get("ref_name", "_ref")
-            prompt = (str(data.get("prompt", "You are a helpful and warm-hearted assistant:)")) + data.get("add_prompt", "")).strip()
+            prompt = (str(data.get("prompt", "You are a helpful and warm-hearted assistant:)")) + " " + data.get("add_prompt", "")).strip()
             model = data.get("model", "gpt-4-1106-preview")
             vision_model = data.get("vision_model", "gpt-4-vision-preview")
-            use_vision = parse_bool(data.get("use_vision", True), True)
-            max_input = data.get("max_input", 80000)
-            max_output = data.get("max_output", 4096)
-            temperature = data.get("temperature", 0.5)
+            use_vision = parse_param(data, "use_vision", bool, True)
+            max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
+            max_output = parse_param(data, "max_output", int, 4096) # data.get("max_output", 4096)
+            temperature = parse_param(data, "temperature", float, 0.3) # data.get("temperature", 0.5)
             response_format = data.get("response_format", "text")
-            timeout = data.get("timeout", 600)
-            retries = data.get("retries", 3)
-            delay = data.get("delay", 1)
+            timeout = parse_param(data, "timeout", int, 600) # timeout = data.get("timeout", 600)
+            retries = parse_param(data, "retries", int, 3) # retries = data.get("retries", 3)
+            delay = parse_param(data, "delay", int, 1) # delay = data.get("delay", 1)
 
             # 处理cell_json_arr
             messages, has_image, total_input, input_tokens = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt)
 
             # 调用openai_chat函数
             if has_image and use_vision:
-                notechat_logger.info(f"### PARAMS ### model: {vision_model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || max_output: {max_output}  || temperature: {temperature} || input_tokens: {input_tokens}")
+                notechat_logger.info(f"### PARAMS ### model: {vision_model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature}")
                 logging_messages = copy.deepcopy(messages)
                 for message in logging_messages:
                     if isinstance(message["content"], list):
@@ -65,7 +65,7 @@ class ChatHandler(APIHandler):
                 notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
                 response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay)
             else:
-                notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || max_output: {max_output}  || temperature: {temperature} || input_tokens: {input_tokens}")
+                notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature}")
                 notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
                 response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay)
 
@@ -131,7 +131,6 @@ class ChatHandler(APIHandler):
     
     async def cell_json_to_message(self, cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt):
         # 打印use vision，顺便判断是不是bool值
-        print(use_vision, type(use_vision))
         messages = []
         tokens = []
         has_image = False
@@ -290,7 +289,7 @@ class ChatHandler(APIHandler):
             final_messages.insert(0, {"role": "system", "content": prompt})
 
         input_tokens = f"【{','.join(map(str, tokens))}】【{str(prompt_token)}】=>【{str(prompt_token)}】【{','.join(map(str, final_tokens))}】"
-        return messages, has_image, total_input, input_tokens
+        return final_messages, has_image, total_input, input_tokens
 
 # 移除字符串中的ansi颜色代码
 def remove_ansi_codes(text):
@@ -318,18 +317,27 @@ def get_num_tokens(text, model):
     encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
 
-# 解析bool字符串
-def parse_bool(value, default):
-    if isinstance(value, bool):
-        # 如果值已经是布尔类型，直接返回
-        return value
-    elif isinstance(value, str):
-        # 如果值是字符串，转换为布尔值
-        value_lower = value.lower()
-        if value_lower == 'true':
-            return True
-        elif value_lower == 'false':
-            return False
+# 解析参数
+def parse_param(data, key, type, default):
+    if key in data:
+        value = data[key]
+        # 如果值已经是目标类型，直接返回
+        if isinstance(value, type):
+            return value
+        # 如果值是字符串，转换为目标类型
+        elif isinstance(value, str):
+            try:
+                # bool类型单独处理，因为可能遇到大小写问题
+                if type == bool:
+                    value_lower = value.lower()
+                    if value_lower == 'true':
+                        return True
+                    elif value_lower == 'false':
+                        return False
+                else:
+                    return type(value)
+            except:
+                pass
     # 如果值是其他类型，返回默认值
     return default
 
