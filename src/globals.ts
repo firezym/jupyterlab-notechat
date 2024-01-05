@@ -24,5 +24,6 @@ export const CHAT_PARAMS = {
   response_format: 'text',
   timeout: 200,
   retries: 2,
-  delay: 0.5
+  delay: 0.5,
+  openai_api_key: 'None'
 }

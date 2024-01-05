@@ -49,6 +49,7 @@ class ChatHandler(APIHandler):
             timeout = parse_param(data, "timeout", int, 600) # timeout = data.get("timeout", 600)
             retries = parse_param(data, "retries", int, 3) # retries = data.get("retries", 3)
             delay = parse_param(data, "delay", int, 1) # delay = data.get("delay", 1)
+            api_key = data.get("openai_api_key", "None")
 
             # 处理cell_json_arr
             messages, has_image, total_input, input_tokens = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt)
@@ -63,11 +64,11 @@ class ChatHandler(APIHandler):
                             if content["type"] == "image_url":
                                 content["image_url"] = content["image_url"][0:30] + "..." + content["image_url"][-30:]
                 notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
-                response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay)
+                response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key)
             else:
                 notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature}")
                 notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
-                response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay)
+                response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay, api_key)
 
             notechat_logger.info(f"### OUTPUT RESPONSE ### {response}")
 
@@ -78,7 +79,7 @@ class ChatHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": "API请求处理出错: " + str(e)}))
 
-    async def openai_chat(self, messages, model="gpt-4-1106-preview", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1):
+    async def openai_chat(self, messages, model="gpt-4-1106-preview", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
         """
         使用OpenAI API进行对话生成
 
@@ -99,10 +100,21 @@ class ChatHandler(APIHandler):
 
             delay: 重试延迟秒数
         """
+        # 首先检查环境变量中的 OPENAI_API_KEY
+        env_api_key = os.environ.get("OPENAI_API_KEY")
+        if env_api_key:
+            # 如果环境变量中的 OPENAI_API_KEY 存在且非空，优先使用环境变量中的值
+            api_key = env_api_key
+        elif api_key is None or api_key.lower() == "none":
+            # 如果传入的 api_key 不存在或其值为 "none"（不区分大小写）
+            return {"error": "OpenAI API Key未设置"}
+        
+        print(api_key)
+        
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + os.environ["OPENAI_API_KEY"],
+            "Authorization": "Bearer " + api_key,
         }
         data = {
             "model": model,

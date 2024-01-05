@@ -114,7 +114,7 @@ function addChatCellDataCommand(app: JupyterFrontEnd, palette: ICommandPalette, 
       if (!currentPanel) {
         return
       }
-      console.log('NoteChat: command triggered settings: ', settings.composite)
+      // console.log('NoteChat: command triggered settings: ', settings.composite)
       // 通过标识符获取按钮，使用类型断言
       const button = BUTTON_MAP.get(currentPanel)
       if (button && button.chatCellData) {
@@ -426,6 +426,7 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   userSettingParams['max_input'] = (userSettings.get('max_input').composite as number) || CHAT_PARAMS.max_input
   userSettingParams['max_output'] = (userSettings.get('max_output').composite as number) || CHAT_PARAMS.max_output
   userSettingParams['temperature'] = (userSettings.get('temperature').composite as number) || CHAT_PARAMS.temperature
+  userSettingParams['openai_api_key'] = (userSettings.get('openai_api_key').composite as string) || CHAT_PARAMS.openai_api_key
 
   // 获取提问单元格的id
   // 默认为当前活动单元格的id
@@ -562,12 +563,13 @@ const getChatCompletions = async (cellJsonArr: any[], cellParams: any): Promise<
       return 'Error in sending data to the server...'
     }
     const res = await serverResponse.json()
-    console.log('NoteChat: server response:', res)
+    console.log('NoteChat: get server response:', res)
 
     // 正常结果
-    if (res.choices[0].message.content) {
+    try {
       return res.choices[0].message.content
-    } else {
+    }
+    catch (error) {
       // 非正常结果
       return JSON.stringify(res)
     }

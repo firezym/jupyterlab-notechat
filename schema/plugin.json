@@ -129,7 +129,13 @@
       "title": "The Randomness of the Response",
       "description": "What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
       "default": 0.5
-    }    
+    },
+    "openai_api_key": {
+      "type": "string",
+      "title": "OpenAI API Key",
+      "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `OPENAI_API_KEY`.",
+      "default": "None"
+    }
   },
   "additionalProperties": false,
   "type": "object"
