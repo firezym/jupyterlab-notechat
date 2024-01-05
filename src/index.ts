@@ -254,34 +254,7 @@ function addHelpCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebook
         return
       }
 
-      let displayString = SETTINGS.help + '--------<br>参数解析<br>'
-
-      const cellString = currentPanel.content.activeCell?.model.toJSON().source?.toString() ?? ''
-      const lines = cellString.trim().split('\n')
-      const params = await parseChatParams(lines[0] ?? '')
-      let counts = 0
-      let paramString = ''
-      for (const key in params) {
-        paramString += `${key}: ${params[key]}<br>`
-        counts++
-      }
-
-      displayString = displayString + `一共${counts}个参数<br><br>`
-      displayString = displayString + paramString + '<br><br>--------<br>ID参数解析<br>'
-
-      const refs = await parseCellReferences(params[SETTINGS.cell_param_name_refs], currentPanel.content.activeCellIndex, currentPanel.content.widgets.length - 1, SETTINGS.num_prev_cells)
-
-      displayString = displayString + `一共${refs.length}个id<br><br>`
-      displayString = displayString + refs.join('<br>')
-
-      displayString = displayString + `<br><br>--------当前id ${currentPanel.content.activeCellIndex} --------<br>传入后端的cell<br>`
-
-      const cellJsonArr = await getCellJsonArrById(currentPanel, refs)
-
-      for (let i = 0; i < cellJsonArr.length; i++) {
-        displayString = displayString + cellJsonArr[i].id + ' : ' + (await processCellSourceString(cellJsonArr[i].source ?? '', [], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])) + '<br>'
-        console.log('NoteChat: cellJsonArr: ', cellJsonArr[i])
-      }
+      let displayString = SETTINGS.help + await getCellParamInfo(currentPanel, settings)
 
       showCustomNotification(displayString, currentPanel, 2000)
       // showCustomNotification(SETTINGS.help, currentPanel, 2000)
@@ -456,7 +429,7 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   cellParams['active_cell_index'] = activeCellIndex
 
   // 获取参数指定的上下文id列表
-  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, numPrevCells)
+  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, cellParams[SETTINGS.num_prev_cells])
 
   // 获取id相应的cell json列表
   const cellJsonArr = await getCellJsonArrById(panel, refs)
@@ -541,7 +514,7 @@ const getChatCompletions = async (cellJsonArr: any[], cellParams: any): Promise<
       ...cellParams
     }
 
-    // console.log('NoteChat: request body: ', JSON.stringify(requestBody))
+    console.log('NoteChat: request body: ', JSON.stringify(requestBody))
 
     // 服务端交互
     const serverSettings = ServerConnection.makeSettings({})
@@ -740,7 +713,7 @@ function addShowCellRefCommand(app: JupyterFrontEnd, palette: ICommandPalette, n
       if (!currentPanel) {
         return
       }
-      return showCellRef(currentPanel)
+      return showCellRef(currentPanel, settings)
     }
   })
   // Add command to the palette
@@ -753,15 +726,57 @@ function addShowCellRefCommand(app: JupyterFrontEnd, palette: ICommandPalette, n
   })
 }
 
+// 获得活动单元格的参数和引用id的文字描述
+const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISettingRegistry.ISettings | null): Promise<string> => {
+
+  if (!panel || !userSettings) {
+    return ''
+  }
+
+  // 初始化一个空对象来存储解析出的参数
+  const userSettingParams: { [key: string]: any } = { ...SETTINGS, ...CHAT_PARAMS }
+  // 获取用户设置
+  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
+  userSettingParams['num_prev_cells'] = numPrevCells
+
+
+  let displayString = '--------<br>参数解析：'
+
+  const cellString = panel.content.activeCell?.model.toJSON().source?.toString() ?? ''
+  const lines = cellString.trim().split('\n')
+  const parsedParams = await parseChatParams(lines[0] ?? '')
+  const cellParams = { ...userSettingParams, ...parsedParams }
+
+  let counts = 0
+  let paramString = ''
+  
+  for (const key in parsedParams) {
+    paramString += `${key}: ${parsedParams[key]} || `
+    counts++
+  }
+
+  displayString = displayString + `一共${counts}个参数：|| `
+  displayString = displayString + paramString + `<br>--------<br>ID引用解析：当前id ${panel.content.activeCellIndex}，`
+
+  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], panel.content.activeCellIndex, panel.content.widgets.length - 1, cellParams[SETTINGS.num_prev_cells])
+  displayString = displayString + `一共${refs.length}个id：|| `
+  displayString = displayString + refs.join(', ') + ` ||`
+
+  return displayString
+
+}
+
 // 显示当前活动单元格的序号和唯一id
-const showCellRef = async (panel: NotebookPanel | null): Promise<void> => {
-  if (!panel) {
+const showCellRef = async (panel: NotebookPanel | null, userSettings: ISettingRegistry.ISettings | null): Promise<void> => {
+  if (!panel || !userSettings) {
     return
   }
   const UniqueId = panel.content.activeCell?.model.toJSON().id
   const SequetialId = panel.content.activeCellIndex
 
-  showCustomNotification(`Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId}`, panel, 2000)
+  let dispalyString = `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId} <br>` + await getCellParamInfo(panel, userSettings)
+
+  showCustomNotification(dispalyString, panel, 2000)
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(`_ref || _refs["${UniqueId}"] || ${SequetialId}`)
