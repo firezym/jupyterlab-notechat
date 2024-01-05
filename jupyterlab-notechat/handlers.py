@@ -337,7 +337,7 @@ def parse_param(data, key, type, default):
                 else:
                     return type(value)
             except:
-                pass
+                return default
     # 如果值是其他类型，返回默认值
     return default
 

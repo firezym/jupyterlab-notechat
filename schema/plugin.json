@@ -86,7 +86,8 @@
     "prompt": {
       "type": "string",
       "title": "Prompt Instructions for NoteChat AI Assistant",
-      "description": "You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics."
+      "description": "For a specific chat cell, you can overwrite the prompt by `@prompt xxx` or append additional instructions by `@add_prompt xxx` in the first line of the cell.",
+      "default": "You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics."
     },
     "num_prev_cells": {
       "type": "integer",
