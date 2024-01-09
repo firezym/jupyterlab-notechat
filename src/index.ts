@@ -8,7 +8,7 @@ import { INotebookTracker, NotebookPanel, NotebookActions, Notebook } from '@jup
 import { Cell } from '@jupyterlab/cells'
 import { ServerConnection } from '@jupyterlab/services'
 
-import { SETTINGS, CHAT_PARAMS } from './globals'
+import { SETTINGS, CHAT_PARAMS, HELP } from './globals'
 import { showCustomNotification } from './notification'
 import { processCellSourceString, parseChatParams, parseCellReferences } from './utils'
 import { atomIconNoteChat, infoIconNoteChat, runAllIconNoteChat, runAboveIconNoteChat, runBelowIconNoteChat, runSelectedIconNoteChat, helpIconNoteChat, addUserCellIconNoteChat } from './icon'
@@ -254,10 +254,10 @@ function addHelpCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebook
         return
       }
 
-      const displayString = SETTINGS.help + (await getCellParamInfo(currentPanel, settings))
+      const displayString = HELP + (await getCellParamInfo(currentPanel, settings))
 
       showCustomNotification(displayString, currentPanel, 2000)
-      // showCustomNotification(SETTINGS.help, currentPanel, 2000)
+      // showCustomNotification(HELP, currentPanel, 2000)
     }
   })
   // Add command to the palette
