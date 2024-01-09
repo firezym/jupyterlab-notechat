@@ -38,7 +38,7 @@
         "clean": "jlpm clean:lib",
         "clean:lib": "rimraf lib tsconfig.tsbuildinfo",
         "clean:lintcache": "rimraf .eslintcache .stylelintcache",
-        "clean:labextension": "rimraf jupyterlab-notechat/labextension jupyterlab-notechat/_version.py",
+        "clean:labextension": "rimraf jupyterlab_notechat/labextension jupyterlab_notechat/_version.py",
         "clean:all": "jlpm clean:lib && jlpm clean:labextension && jlpm clean:lintcache",
         "eslint": "jlpm eslint:check --fix",
         "eslint:check": "eslint . --cache --ext .ts,.tsx",
@@ -105,12 +105,12 @@
                     "pip"
                 ],
                 "base": {
-                    "name": "jupyterlab-notechat"
+                    "name": "jupyterlab_notechat"
                 }
             }
         },
         "extension": true,
-        "outputDir": "jupyterlab-notechat/labextension",
+        "outputDir": "jupyterlab_notechat/labextension",
         "schemaDir": "schema"
     },
     "eslintIgnore": [

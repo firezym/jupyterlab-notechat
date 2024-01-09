@@ -1,7 +1,7 @@
 {
   "ServerApp": {
     "jpserver_extensions": {
-      "jupyterlab-notechat": true
+      "jupyterlab_notechat": true
     }
   }
 }

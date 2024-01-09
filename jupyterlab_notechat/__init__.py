@@ -5,7 +5,7 @@ except ImportError:
     # in editable mode with pip. It is highly recommended to install
     # the package from a stable release or in editable mode: https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs
     import warnings
-    warnings.warn("Importing 'jupyterlab-notechat' outside a proper installation.")
+    warnings.warn("Importing 'jupyterlab_notechat' outside a proper installation.")
     __version__ = "dev"
 from .handlers import setup_handlers
 
@@ -19,7 +19,7 @@ def _jupyter_labextension_paths():
 
 def _jupyter_server_extension_points():
     return [{
-        "module": "jupyterlab-notechat"
+        "module": "jupyterlab_notechat"
     }]
 
 
@@ -32,5 +32,5 @@ def _load_jupyter_server_extension(server_app):
         JupyterLab application instance
     """
     setup_handlers(server_app.web_app)
-    name = "jupyterlab-notechat"
+    name = "jupyterlab_notechat"
     server_app.log.info(f"Registered {name} server extension")

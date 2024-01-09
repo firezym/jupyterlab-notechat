@@ -3,7 +3,7 @@ requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5", "hatch-nodejs-version>=0
 build-backend = "hatchling.build"
 
 [project]
-name = "jupyterlab-notechat"
+name = "jupyterlab_notechat"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.8"
@@ -45,25 +45,25 @@ source = "nodejs"
 fields = ["description", "authors", "urls"]
 
 [tool.hatch.build.targets.sdist]
-artifacts = ["jupyterlab-notechat/labextension"]
+artifacts = ["jupyterlab_notechat/labextension"]
 exclude = [".github", "binder"]
 
 [tool.hatch.build.targets.wheel.shared-data]
-"jupyterlab-notechat/labextension" = "share/jupyter/labextensions/jupyterlab-notechat"
+"jupyterlab_notechat/labextension" = "share/jupyter/labextensions/jupyterlab-notechat"
 "install.json" = "share/jupyter/labextensions/jupyterlab-notechat/install.json"
 "jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
 
 [tool.hatch.build.hooks.version]
-path = "jupyterlab-notechat/_version.py"
+path = "jupyterlab_notechat/_version.py"
 
 [tool.hatch.build.hooks.jupyter-builder]
 dependencies = ["hatch-jupyter-builder>=0.5"]
 build-function = "hatch_jupyter_builder.npm_builder"
 ensured-targets = [
-    "jupyterlab-notechat/labextension/static/style.js",
-    "jupyterlab-notechat/labextension/package.json",
+    "jupyterlab_notechat/labextension/static/style.js",
+    "jupyterlab_notechat/labextension/package.json",
 ]
-skip-if-exists = ["jupyterlab-notechat/labextension/static/style.js"]
+skip-if-exists = ["jupyterlab_notechat/labextension/static/style.js"]
 
 [tool.hatch.build.hooks.jupyter-builder.build-kwargs]
 build_cmd = "build:prod"
@@ -73,7 +73,7 @@ npm = ["jlpm"]
 build_cmd = "install:extension"
 npm = ["jlpm"]
 source_dir = "src"
-build_dir = "jupyterlab-notechat/labextension"
+build_dir = "jupyterlab_notechat/labextension"
 
 [tool.jupyter-releaser.options]
 version_cmd = "hatch version"

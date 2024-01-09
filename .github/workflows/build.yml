@@ -49,7 +49,7 @@ jobs:
 
         pip install build
         python -m build
-        pip uninstall -y "jupyterlab-notechat" jupyterlab
+        pip uninstall -y "jupyterlab_notechat" jupyterlab
 
     - name: Upload extension packages
       uses: actions/upload-artifact@v3
