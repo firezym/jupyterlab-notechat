@@ -106,7 +106,7 @@
       "description": "This vision model will be used if there is picture in the context. Currently only png, jpeg, gif and webp formats are supported",
       "default": "gpt-4-vision-preview"
     },
-    "use_vision":{
+    "use_vision": {
       "type": "boolean",
       "title": "Whether to Use Vision Model",
       "description": "If set to false, text model will be used even if there is picture in the context.",

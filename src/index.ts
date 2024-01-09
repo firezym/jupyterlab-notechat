@@ -254,7 +254,7 @@ function addHelpCommand(app: JupyterFrontEnd, palette: ICommandPalette, notebook
         return
       }
 
-      let displayString = SETTINGS.help + await getCellParamInfo(currentPanel, settings)
+      const displayString = SETTINGS.help + (await getCellParamInfo(currentPanel, settings))
 
       showCustomNotification(displayString, currentPanel, 2000)
       // showCustomNotification(SETTINGS.help, currentPanel, 2000)
@@ -541,8 +541,7 @@ const getChatCompletions = async (cellJsonArr: any[], cellParams: any): Promise<
     // 正常结果
     try {
       return res.choices[0].message.content
-    }
-    catch (error) {
+    } catch (error) {
       // 非正常结果
       return JSON.stringify(res)
     }
@@ -728,7 +727,6 @@ function addShowCellRefCommand(app: JupyterFrontEnd, palette: ICommandPalette, n
 
 // 获得活动单元格的参数和引用id的文字描述
 const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISettingRegistry.ISettings | null): Promise<string> => {
-
   if (!panel || !userSettings) {
     return ''
   }
@@ -739,7 +737,6 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
   const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
   userSettingParams['num_prev_cells'] = numPrevCells
 
-
   let displayString = '--------<br>参数解析：'
 
   const cellString = panel.content.activeCell?.model.toJSON().source?.toString() ?? ''
@@ -749,7 +746,7 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
 
   let counts = 0
   let paramString = ''
-  
+
   for (const key in parsedParams) {
     paramString += `${key}: ${parsedParams[key]} || `
     counts++
@@ -760,10 +757,9 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
 
   const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], panel.content.activeCellIndex, panel.content.widgets.length - 1, cellParams[SETTINGS.num_prev_cells])
   displayString = displayString + `一共${refs.length}个id：|| `
-  displayString = displayString + refs.join(', ') + ` ||`
+  displayString = displayString + refs.join(', ') + ' ||'
 
   return displayString
-
 }
 
 // 显示当前活动单元格的序号和唯一id
@@ -774,7 +770,7 @@ const showCellRef = async (panel: NotebookPanel | null, userSettings: ISettingRe
   const UniqueId = panel.content.activeCell?.model.toJSON().id
   const SequetialId = panel.content.activeCellIndex
 
-  let dispalyString = `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId} <br>` + await getCellParamInfo(panel, userSettings)
+  const dispalyString = `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId} <br>` + (await getCellParamInfo(panel, userSettings))
 
   showCustomNotification(dispalyString, panel, 2000)
 
