@@ -109,8 +109,6 @@ class ChatHandler(APIHandler):
             # 如果传入的 api_key 不存在或其值为 "none"（不区分大小写）
             return {"error": "OpenAI API Key未设置"}
         
-        print(api_key)
-        
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
