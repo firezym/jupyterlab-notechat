@@ -6,7 +6,7 @@
 
 - add notebook level parameter setting
 - optimize help and settings display
-- add examples
+- add full readme handbook and examples
 
 ## 0.1.0 2024 Jan 9
 
