@@ -389,17 +389,19 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
 
   // 初始化一个空对象来存储解析出的参数
   const userSettingParams: { [key: string]: any } = { ...SETTINGS, ...CHAT_PARAMS }
-  // 获取用户设置
-  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
+  // 获取用户设置: ??在需要0、false、""是一个要被识别有效值，所以bool值一定要用??，而prompt可以为空，所以用??
+  const numPrevCells = (userSettings.get('num_prev_cells').composite as number) ?? SETTINGS.num_prev_cells
   userSettingParams['num_prev_cells'] = numPrevCells
-  userSettingParams['prompt'] = (userSettings.get('prompt').composite as string) || CHAT_PARAMS.prompt
+  userSettingParams['prompt'] = (userSettings.get('prompt').composite as string) ?? CHAT_PARAMS.prompt
   userSettingParams['model'] = (userSettings.get('model').composite as string) || CHAT_PARAMS.model
   userSettingParams['vision_model'] = (userSettings.get('vision_model').composite as string) || CHAT_PARAMS.vision_model
-  userSettingParams['use_vision'] = (userSettings.get('use_vision').composite as boolean) || CHAT_PARAMS.use_vision
+  userSettingParams['use_vision'] = (userSettings.get('use_vision').composite as boolean) ?? CHAT_PARAMS.use_vision
   userSettingParams['max_input'] = (userSettings.get('max_input').composite as number) || CHAT_PARAMS.max_input
   userSettingParams['max_output'] = (userSettings.get('max_output').composite as number) || CHAT_PARAMS.max_output
-  userSettingParams['temperature'] = (userSettings.get('temperature').composite as number) || CHAT_PARAMS.temperature
+  userSettingParams['temperature'] = (userSettings.get('temperature').composite as number) ?? CHAT_PARAMS.temperature
   userSettingParams['openai_api_key'] = (userSettings.get('openai_api_key').composite as string) || CHAT_PARAMS.openai_api_key
+
+  const notebookParams = panel?.model?.getMetadata('notechat') ?? {}
 
   // 获取提问单元格的id
   // 默认为当前活动单元格的id
@@ -425,7 +427,7 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   const userCellParams = await parseChatParams(userParamString)
 
   // 将userParams中的参数覆盖到aiParams，再覆盖到userSettingParams
-  const cellParams = { ...userSettingParams, ...aiCellParams, ...userCellParams }
+  const cellParams = { ...userSettingParams, ...notebookParams, ...aiCellParams, ...userCellParams }
   cellParams['active_cell_index'] = activeCellIndex
 
   // 获取参数指定的上下文id列表
@@ -514,7 +516,7 @@ const getChatCompletions = async (cellJsonArr: any[], cellParams: any): Promise<
       ...cellParams
     }
 
-    console.log('NoteChat: request body: ', JSON.stringify(requestBody))
+    // console.log('NoteChat: request body: ', JSON.stringify(requestBody))
 
     // 服务端交互
     const serverSettings = ServerConnection.makeSettings({})
@@ -742,7 +744,10 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
   const cellString = panel.content.activeCell?.model.toJSON().source?.toString() ?? ''
   const lines = cellString.trim().split('\n')
   const parsedParams = await parseChatParams(lines[0] ?? '')
-  const cellParams = { ...userSettingParams, ...parsedParams }
+
+  const notebookParams = panel?.model?.getMetadata('notechat') ?? {}
+
+  const cellParams = { ...userSettingParams, ...notebookParams, ...parsedParams }
 
   let counts = 0
   let paramString = ''
@@ -773,6 +778,8 @@ const showCellRef = async (panel: NotebookPanel | null, userSettings: ISettingRe
   const dispalyString = `Copied to Clipboard: Unique ID: ${UniqueId} || Sequetial ID: ${SequetialId} <br>` + (await getCellParamInfo(panel, userSettings))
 
   showCustomNotification(dispalyString, panel, 2000)
+
+  // console.log('NoteChat: notebook metadata: ', panel?.model?.getMetadata('notechat'))
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(`_ref || _refs["${UniqueId}"] || ${SequetialId}`)
