@@ -7,7 +7,7 @@ export const SETTINGS = {
   user_name: '**user**',
   cell_param_name_refs: 'refs',
   ref_name: '_ref',
-  num_prev_cells: 2,
+  num_prev_cells: 10,
   data_types: ['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']
 }
 
