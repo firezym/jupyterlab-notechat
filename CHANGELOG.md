@@ -2,6 +2,11 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.1.2 2024 Jan 12
+
+- optimize documents
+- add help notification slidebar css
+
 ## 0.1.1 2024 Jan 11
 
 - add notebook level parameter setting
