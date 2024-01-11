@@ -85,54 +85,54 @@
   "properties": {
     "prompt": {
       "type": "string",
-      "title": "Prompt Instructions for NoteChat AI Assistant",
+      "title": "@prompt @add_prompt : System Prompt Message",
       "description": "For a specific chat cell, you can overwrite the prompt by `@prompt xxx` or append additional instructions by `@add_prompt xxx` in the first line of the cell.",
       "default": "You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics."
     },
     "num_prev_cells": {
       "type": "integer",
-      "title": "Number of Cells Before the Active Cell As Context for AI Assistant",
+      "title": "@num_prev_cells : Number of Cells Before the Active Cell As Context",
       "description": "These cells' code and content before the active cell will be sent to the AI assistant as context if no other addtional parameters are specified.",
       "default": 2
     },
     "model": {
       "type": "string",
-      "title": "Text Model",
+      "title": "@model : Text Model",
       "default": "gpt-4-1106-preview"
     },
     "vision_model": {
       "type": "string",
-      "title": "Vision Model",
+      "title": "@vision_model : Vision Model",
       "description": "This vision model will be used if there is picture in the context. Currently only png, jpeg, gif and webp formats are supported",
       "default": "gpt-4-vision-preview"
     },
     "use_vision": {
       "type": "boolean",
-      "title": "Whether to Use Vision Model",
+      "title": "@use_vision : Whether to Use Vision Model",
       "description": "If set to false, text model will be used even if there is picture in the context.",
       "default": true
     },
     "max_input": {
       "type": "integer",
-      "title": "Number of Max Tokens for Input of One Chat",
+      "title": "@max_input : Number of Max Tokens for Input of One Chat",
       "description": "Extra messages exceeding this limit will be ignored. Prompt message and active cell content will be preserved by default.",
       "default": 80000
     },
     "max_output": {
       "type": "integer",
-      "title": "Number of Max Tokens for Chat Response",
+      "title": "@max_output : Number of Max Tokens for Chat Response",
       "description": "Chat completion will stop when response exceeds this limit.",
       "default": 4096
     },
     "temperature": {
       "type": "number",
-      "title": "The Randomness of the Response",
+      "title": "@temperature : The Randomness of the Response",
       "description": "What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
       "default": 0.5
     },
     "openai_api_key": {
       "type": "string",
-      "title": "OpenAI API Key",
+      "title": "@openai_api_key : OpenAI API Key",
       "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `OPENAI_API_KEY`.",
       "default": "None"
     }
