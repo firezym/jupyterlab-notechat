@@ -42,6 +42,8 @@
   top: 50%; /* 垂直居中 */
   transform: translateX(-50%);
   max-width: 50vw; /* 限制通知的最大宽度 */
+  overflow-y: auto; /* 垂直方向的滚动条 */
+  max-height: 80vh; /* 最大高度，如视窗高度的80% */
   border: 1px solid #fff; /* 添加白色边框 */
 }
 
