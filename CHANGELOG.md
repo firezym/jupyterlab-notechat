@@ -2,6 +2,12 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.1.3 2024 Jan 15
+
+- fix major bug: num_prev_cell param usage
+- optimize help notification close button
+- improve documentation
+
 ## 0.1.2 2024 Jan 12
 
 - optimize documents
