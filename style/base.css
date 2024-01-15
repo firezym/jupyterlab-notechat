@@ -56,7 +56,7 @@
   color: #fff; /* 文本颜色 */
   position: absolute;
   top: 0;
-  right: 0;
+  right: 10px;
   border: none;
   background: transparent;
   cursor: pointer;
