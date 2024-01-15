@@ -431,7 +431,7 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   cellParams['active_cell_index'] = activeCellIndex
 
   // 获取参数指定的上下文id列表
-  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, cellParams[SETTINGS.num_prev_cells])
+  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], activeCellIndex, maxIndex, cellParams['num_prev_cells'])
 
   // 获取id相应的cell json列表
   const cellJsonArr = await getCellJsonArrById(panel, refs)
@@ -760,7 +760,7 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
   displayString = displayString + `一共${counts}个参数：|| `
   displayString = displayString + paramString + `<br>--------<br>ID引用解析：当前id ${panel.content.activeCellIndex}，`
 
-  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], panel.content.activeCellIndex, panel.content.widgets.length - 1, cellParams[SETTINGS.num_prev_cells])
+  const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], panel.content.activeCellIndex, panel.content.widgets.length - 1, cellParams['num_prev_cells'])
   displayString = displayString + `一共${refs.length}个id：|| `
   displayString = displayString + refs.join(', ') + ' ||'
 
