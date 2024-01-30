@@ -10,7 +10,7 @@ import { ServerConnection } from '@jupyterlab/services'
 
 import { SETTINGS, CHAT_PARAMS, HELP } from './globals'
 import { showCustomNotification } from './notification'
-import { processCellSourceString, parseChatParams, parseCellReferences } from './utils'
+import { processCellSourceString, parseChatParams, parseCellReferences, utf8ToBase64 } from './utils'
 import { atomIconNoteChat, infoIconNoteChat, runAllIconNoteChat, runAboveIconNoteChat, runBelowIconNoteChat, runSelectedIconNoteChat, helpIconNoteChat, addUserCellIconNoteChat } from './icon'
 
 /**
@@ -91,9 +91,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
           /** Add command: 添加用户对话框 */
           addUserCellCommand(app, palette, notebookTracker, settings)
 
-          /** 绑定函数：将cell执行的最新结果，放入kernel中，方便notebook代码使用 */
+          /** 绑定函数：将最新执行的cell的代码，放入kernel中的refs，方便notebook代码使用 */
           NotebookActions.executed.connect((sender, args) => {
-            sendOutputToKernel(notebookTracker, sender, args)
+            sendSourceToKernel(notebookTracker, sender, args)
           })
         })
         .catch(reason => {
@@ -675,7 +675,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
   }
 
   // 初始化_refs作为一个空的dict变量
-  const codes = [`${SETTINGS.ref_name}s = {}`]
+  const codes = [`import base64`, `${SETTINGS.ref_name}s = {}`]
   let lastRef = ''
   for (let i = 0; i < panel.content.widgets.length; i++) {
     const cell = panel.content.widgets[i]
@@ -685,14 +685,19 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     // if (cell.model.type === 'markdown') {
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = await processCellSourceString(source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])
-    codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`)
-    lastRef = `${SETTINGS.ref_name} = """${processedSource}"""`
+    const encodedSource = utf8ToBase64(processedSource)
+    // codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`)
+    codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = base64.b64decode("${encodedSource}").decode('utf-8')`)
+    // lastRef = `${SETTINGS.ref_name} = """${processedSource}"""`
+    lastRef = `${SETTINGS.ref_name} = base64.b64decode("${encodedSource}").decode('utf-8')`
     // }
   }
   //如果lastRef不为空字符串，则加入codes中
   if (lastRef) {
     codes.push(lastRef)
   }
+
+  console.log('NoteChat: initialize panel, codes: ', codes.join('\n'))
 
   // 执行代码
   panel.sessionContext.session?.kernel?.requestExecute({
@@ -786,7 +791,7 @@ const showCellRef = async (panel: NotebookPanel | null, userSettings: ISettingRe
   }
 }
 
-async function sendOutputToKernel(notebookTracker: INotebookTracker, sender: NotebookActions, args: { notebook: Notebook; cell: Cell }) {
+async function sendSourceToKernel(notebookTracker: INotebookTracker, sender: NotebookActions, args: { notebook: Notebook; cell: Cell }) {
   const { notebook, cell } = args
   console.log('NoteChat: executed cell & id: ', cell.model.toJSON().source?.toString(), '\nid: ', cell.model.toJSON().id)
 
@@ -795,12 +800,16 @@ async function sendOutputToKernel(notebookTracker: INotebookTracker, sender: Not
     return notebookPanel.content === notebook
   })
 
+  const codes = []
   if (panel) {
     // 去掉含有AI_NAME或USER_NAME一整行的内容，因为包括了一些不必要的参数的信息
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = await processCellSourceString(source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])
+    const encodedSource = utf8ToBase64(processedSource)
+    codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = base64.b64decode("${encodedSource}").decode('utf-8')`)
+    codes.push(`${SETTINGS.ref_name} = base64.b64decode("${encodedSource}").decode('utf-8')`)
     panel.sessionContext.session?.kernel?.requestExecute({
-      code: `${SETTINGS.ref_name} = """${processedSource}"""\n${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`
+      code: codes.join('\n')
     })
   }
 }

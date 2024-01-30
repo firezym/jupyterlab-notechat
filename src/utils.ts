@@ -5,6 +5,15 @@ export const removeANSISequences = (str: string): string => {
   return str.replace(ansiEscapeRegex, '')
 }
 
+// 将字符串编码为base64
+export const utf8ToBase64 = (str: string): string => {
+  // 将字符串编码为UTF-8字节
+  const utf8Bytes = new TextEncoder().encode(str)
+  // 转换为Base64
+  const base64 = btoa(String.fromCharCode.apply(null, Array.from(utf8Bytes)))
+  return base64
+}
+
 // 处理 Markdown 单元格的字符串，根据指定的字符串数组移除首尾行
 export const processCellSourceString = async (
   cellString: string,
