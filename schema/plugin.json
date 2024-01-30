@@ -98,7 +98,7 @@
     "model": {
       "type": "string",
       "title": "@model : Text Model",
-      "default": "gpt-4-1106-preview"
+      "default": "gpt-4-turbo-preview"
     },
     "vision_model": {
       "type": "string",
