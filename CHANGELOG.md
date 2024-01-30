@@ -2,6 +2,11 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.1.5 2024 Jan 30
+
+- fix major bug: use base64 encoding on frontend and decoding on backend to execute python code for refs; this can avoid kernel execution failure due to special chars in strings which should be escaped (such as ' inside "")
+- optimize examples
+
 ## 0.1.3 2024 Jan 15
 
 - fix major bug: num_prev_cell param usage
