@@ -675,7 +675,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
   }
 
   // 初始化_refs作为一个空的dict变量
-  const codes = [`import base64`, `${SETTINGS.ref_name}s = {}`]
+  const codes = ['import base64', `${SETTINGS.ref_name}s = {}`]
   let lastRef = ''
   for (let i = 0; i < panel.content.widgets.length; i++) {
     const cell = panel.content.widgets[i]
