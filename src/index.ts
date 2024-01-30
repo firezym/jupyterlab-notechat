@@ -686,9 +686,7 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
     const source = cell.model.toJSON().source?.toString() ?? ''
     const processedSource = await processCellSourceString(source, [SETTINGS.ai_name, SETTINGS.user_name], [`${SETTINGS.ref_name} || ${SETTINGS.ref_name}s`])
     const encodedSource = utf8ToBase64(processedSource)
-    // codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = """${processedSource}"""`)
     codes.push(`${SETTINGS.ref_name}s["${cell.model.toJSON().id}"] = base64.b64decode("${encodedSource}").decode('utf-8')`)
-    // lastRef = `${SETTINGS.ref_name} = """${processedSource}"""`
     lastRef = `${SETTINGS.ref_name} = base64.b64decode("${encodedSource}").decode('utf-8')`
     // }
   }
@@ -696,8 +694,6 @@ const initializePanel = async (panel: NotebookPanel | null): Promise<void> => {
   if (lastRef) {
     codes.push(lastRef)
   }
-
-  console.log('NoteChat: initialize panel, codes: ', codes.join('\n'))
 
   // 执行代码
   panel.sessionContext.session?.kernel?.requestExecute({
