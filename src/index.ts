@@ -347,7 +347,7 @@ class RotatingToolbarButton extends ToolbarButton {
   // 开始旋转
   startRotation() {
     // console.log('NoteChat: chatButton START rotating, id: ', this.creationTimestamp)
-    const iconElement = this.node.querySelector('[class*="icon"]')
+    const iconElement = this.node.querySelector('[data-icon="jupyterlab-notechat:atom-icon"]')
     if (iconElement) {
       iconElement.classList.add('rotate', 'rotate-color')
     }
@@ -356,7 +356,7 @@ class RotatingToolbarButton extends ToolbarButton {
   // 停止旋转
   stopRotation() {
     // console.log('NoteChat: chatButton STOP rotating, id: ', this.creationTimestamp)
-    const iconElement = this.node.querySelector('[class*="icon"]')
+    const iconElement = this.node.querySelector('[data-icon="jupyterlab-notechat:atom-icon"]')
     if (iconElement) {
       iconElement.classList.remove('rotate', 'rotate-color')
     }
