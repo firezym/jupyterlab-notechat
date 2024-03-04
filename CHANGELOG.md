@@ -2,6 +2,12 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.2.0 2024 Mar 4
+
+- fix major bug: jupyterlab 4.1.2 fixed the markdown broken copy/paste issue on chrome based browser in windows; but this version update brings the following bug
+- fix bug: chat status icon on button can not rotate; icon class tag is missing under jupyterlab 4.1.2; use another feature to select icon
+- trivial: update examples and new models
+
 ## 0.1.6 2024 Jan 30
 
 - update default models to newest gpt-4-turbo-preview
