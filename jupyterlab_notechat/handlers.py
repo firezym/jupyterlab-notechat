@@ -39,8 +39,8 @@ class ChatHandler(APIHandler):
             user_name = data.get("user_name", "**user**")
             ref_name = data.get("ref_name", "_ref")
             prompt = (str(data.get("prompt", "You are a helpful and warm-hearted assistant:)")) + " " + data.get("add_prompt", "")).strip()
-            model = data.get("model", "gpt-4-1106-preview")
-            vision_model = data.get("vision_model", "gpt-4-vision-preview")
+            model = data.get("model", "gpt-4-turbo")
+            vision_model = data.get("vision_model", "gpt-4-turbo")
             use_vision = parse_param(data, "use_vision", bool, True)
             max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
             max_output = parse_param(data, "max_output", int, 4096) # data.get("max_output", 4096)
@@ -62,7 +62,7 @@ class ChatHandler(APIHandler):
                     if isinstance(message["content"], list):
                         for content in message["content"]:
                             if content["type"] == "image_url":
-                                content["image_url"] = content["image_url"][0:30] + "..." + content["image_url"][-30:]
+                                content["image_url"]["url"] = content["image_url"]["url"][0:30] + "..." + content["image_url"]["url"][-30:]
                 notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
                 response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key)
             else:
@@ -79,14 +79,14 @@ class ChatHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": "API请求处理出错: " + str(e)}))
 
-    async def openai_chat(self, messages, model="gpt-4-1106-preview", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
+    async def openai_chat(self, messages, model="gpt-4-turbo", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
         """
         使用OpenAI API进行对话生成
 
         Args:
             messages: 对话消息列表
 
-            model: 模型名称，gpt-4-1106-preview，gpt-3.5-turbo-1106, gpt-3.5-turbo
+            model: 模型名称，gpt-4-turbo，gpt-3.5-turbo
 
             max_tokens: 最大生成长度
 
@@ -197,16 +197,14 @@ class ChatHandler(APIHandler):
                     for _, data in cell["attachments"].items():
                         # 处理图片类型附件
                         if use_vision and "image/png" in data and len(data["image/png"])>0:
-                            content_image.append({"type": "image_url", "image_url": f"data:image/png;base64," + data["image/png"]})
+                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + data["image/png"] } })
                         elif use_vision and "image/jpeg" in data and len(data["image/jpeg"])>0:
-                            content_image.append({"type": "image_url", "image_url": f"data:image/jpeg;base64," + data["image/jpeg"]})
+                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpeg"] } })
                         elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
-                            content_image.append({"type": "image_url", "image_url": f"data:image/gif;base64," + data["image/gif"]})
+                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
                         elif use_vision and "image/webp" in data and len(data["image/webp"])>0:
-                            content_image.append({"type": "image_url", "image_url": f"data:image/webp;base64," + data["image/webp"]})
+                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + data["image/webp"] } })
                         # 目前openai vision不支持bmp格式
-                        # elif "image/bmp" in data and len(data["image/bmp"])>0:
-                        #     content_image.append({"type": "image_url", "image_url": f"data:image/bmp;base64," + data["image/bmp"]})
             
             # 如果是raw单元格，目前暂时没有特殊处理
             if cell["cell_type"] == "raw":
@@ -234,13 +232,13 @@ class ChatHandler(APIHandler):
                                     output_text.append(output["data"]["text/plain"].strip())
                                 # 一般是plotly的微缩图片
                                 if use_vision and "image/png" in output["data"] and len(output["data"]["image/png"])>0:
-                                    content_image.append({"type": "image_url", "image_url": f"data:image/png;base64," + output["data"]["image/png"]})
+                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + output["data"]["image/png"] } })
                                 elif use_vision and "image/jpeg" in output["data"] and len(output["data"]["image/jpeg"])>0:
-                                    content_image.append({"type": "image_url", "image_url": f"data:image/jpeg;base64," + output["data"]["image/jpeg"]})
+                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + output["data"]["image/jpeg"] } })
                                 elif use_vision and "image/gif" in output["data"] and len(output["data"]["image/gif"])>0:
-                                    content_image.append({"type": "image_url", "image_url": f"data:image/gif;base64," + output["data"]["image/gif"]})
+                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + output["data"]["image/gif"] } })
                                 elif use_vision and "image/webp" in output["data"] and len(output["data"]["image/webp"])>0:
-                                    content_image.append({"type": "image_url", "image_url": f"data:image/webp;base64," + output["data"]["image/webp"]})
+                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + output["data"]["image/webp"] } })
 
             # 如果有图片，则标记为有图片
             if len(content_image) > 0:
