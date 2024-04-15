@@ -4,12 +4,21 @@ import httpx, asyncio, tiktoken
 
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
+from logging.handlers import TimedRotatingFileHandler
 import tornado
 
 # 创建一个名为 'notechat_logger' 的专用日志记录器
 notechat_logger = logging.getLogger("notechat_logger")
 notechat_logger.setLevel(logging.INFO)
-notechat_fh = logging.FileHandler("notechat.log", encoding="utf-8")
+
+# 检查@log文件夹是否存在，如果不存在则创建
+log_directory = "@log"
+if not os.path.exists(log_directory):
+    os.makedirs(log_directory)
+
+# 创建一个定时旋转的日志处理器
+log_filename = os.path.join(log_directory, "notechat.log")
+notechat_fh = TimedRotatingFileHandler(log_filename, when="midnight", interval=1, encoding="utf-8")
 notechat_fh.setFormatter(logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
 notechat_logger.addHandler(notechat_fh)
 notechat_logger.info(f"###### IT IS A GOOD DAY TODAY, LET'S FIND 42 !! ######")
