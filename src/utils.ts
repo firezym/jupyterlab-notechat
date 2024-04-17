@@ -52,7 +52,7 @@ export const parseChatParams = async (input: string): Promise<{ [key: string]: a
 
   // 使用正则表达式匹配参数文本中含有'.'的路径字符串，并替换路径中的可能的'@'，防止被误解析为参数
   const placeholder = '<AT>'
-  const texts = input.trim().replace(/\S+?\.\S+/g, (match) => {
+  const texts = input.trim().replace(/\S+?\.\S+/g, match => {
     // 只替换路径中的 '@'，如果包含 '.'
     if (match.includes('.') && match.includes('@')) {
       return match.replace(/@/g, placeholder)
