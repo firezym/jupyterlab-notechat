@@ -2,6 +2,12 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.3.0 2024 Apr 17
+
+- add major function: notechat now can cross reference external files using `@files file_path/file_name` commands
+- fix bug: change vision parameter `'image_url':'URL'` under model gpt-4-vision-preview to `'image_url': {'url': 'URL'}` under new model gpt-4-turbo
+- optimize: chat logs will be stored daily under `@log` folder
+
 ## 0.2.0 2024 Mar 4
 
 - fix major bug: jupyterlab 4.1.2 fixed the markdown broken copy/paste issue on chrome based browser in windows; but this version update brings the following bug
