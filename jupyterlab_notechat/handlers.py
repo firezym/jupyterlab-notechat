@@ -1,4 +1,4 @@
-import json, os, re, logging, copy
+import json, os, re, logging, copy, traceback
 import httpx, asyncio, tiktoken, fitz
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -79,7 +79,7 @@ class ChatHandler(APIHandler):
                 notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
                 response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key)
             else:
-                notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature}")
+                notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} ||")
                 notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
                 response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay, api_key)
 
@@ -156,10 +156,34 @@ class ChatHandler(APIHandler):
     async def get_all_messages(self, cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt, files):
 
         # 根据files生成引用文件的所有的messasges
-        file_messages, file_tokens, file_has_image = await files_to_message(files, ai_name, user_name, ref_name, model, use_vision)
-
-        # 先生成本notebook传回的所有messages
-        notebook_messages, notebook_tokens, notebook_has_image = await cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
+        try:
+            file_messages, file_tokens, file_has_image = await files_to_message(files, ai_name, user_name, ref_name, model, use_vision)
+        except Exception as e:
+            error_traceback = traceback.format_exc()  # 获取完整的堆栈跟踪
+            content_text = f"########Fetching files `{files}` content error########\n```\nException:\n{e}\n\nTraceBack:\n{error_traceback}\n```"
+            file_messages = [{
+                "role": "user",
+                "name": "context",
+                "content": content_text
+            }]
+            file_tokens = [get_num_tokens(content_text, model)]
+            file_has_image = False
+            notechat_logger.error(f"### FILES PROCESSING ERROR ### Exception: {str(e)} || TraceBack: {error_traceback} ||")
+        
+        # 生成本notebook传回的所有messages
+        try:
+            notebook_messages, notebook_tokens, notebook_has_image = await cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
+        except Exception as e:
+            error_traceback = traceback.format_exc()  # 获取完整的堆栈跟踪
+            content_text = f"########Fetching current notebook content error########\n```\nException:\n{e}\n\nTraceBack:\n{error_traceback}\n```"
+            notebook_messages = [{
+                "role": "user",
+                "name": "context",
+                "content": content_text
+            }]
+            notebook_tokens = [get_num_tokens(content_text, model)]
+            notebook_has_image = False
+            notechat_logger.error(f"### NOTEBOOK PROCESSING ERROR ### Exception: {str(e)} || TraceBack: {error_traceback} ||")
 
         # 如果有跨文件引用，则为当前notebook的0号起始位置插入提示文件名的message用于区分文件
         if len(file_messages)>0:
