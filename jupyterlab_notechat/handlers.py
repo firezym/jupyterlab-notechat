@@ -152,154 +152,14 @@ class ChatHandler(APIHandler):
         # 在达到最大重试次数后，返回错误信息，而不是抛出异常
         return {"error": f"API请求失败，已重试{retries}次，无法获取响应"}
     
-    async def cell_json_to_message(self, cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision):
-        # 打印use vision，顺便判断是不是bool值
-        messages = []
-        tokens = []
-        has_image = False
-        is_active_cell_last = True
-        active_cell_tokens = 0
-
-         # 构建用于 ai_name 的正则表达式
-        ai_name_regex = re.compile(r'^{}.*\n?'.format(re.escape(ai_name)), re.IGNORECASE)
-
-        # 构建用于 user_name 的正则表达式
-        user_name_regex = re.compile(r'^{}.*\n?'.format(re.escape(user_name)), re.IGNORECASE)
-
-        # 构建用于 div 标签的正则表达式
-        ref_name_regex = re.compile(r'<div.*?>{}.*?{}.*?</div>$'.format(re.escape(ref_name), re.escape(ref_name)), re.IGNORECASE)
-
-        for id, cell in enumerate(cell_json_arr):
-            message = { 
-                "role": "user",
-                "name": "context"
-            }
-            source_text = ""
-            output_text = []
-            content_image = []
-
-            # 如果source首行含有ai_name或user_name，则更换角色
-            # 检查 ai_name 的匹配，如果匹配移除第一行
-            if ai_name_regex.search(cell["source"]):
-                cell["source"] = ai_name_regex.sub("", cell["source"])
-                message["role"] = "assistant"
-                message["name"] = "assistant"
-            # 检查 user_name 的匹配，如果匹配移除第一行
-            if user_name_regex.search(cell["source"]):
-                cell["source"] = user_name_regex.sub("", cell["source"])
-                message["role"] = "user"
-                message["name"] = "user"
-
-            # 如果是活动单元格，强行标注为user角色
-            if cell["num_id"] == active_cell_index:
-                message["role"] = "user"
-                message["name"] = "user"
-
-            # 如果source尾行含有ref_name，则去除尾行
-            if ref_name_regex.search(cell["source"]):
-                cell["source"] = ref_name_regex.sub("", cell["source"])
-
-            # 处理source文本
-            if len(cell["source"].strip())>0:
-                source_text += cell["source"].strip()
-
-            # 如果是markdown单元格，目前需要单独处理附件中的图片
-            if cell["cell_type"] == "markdown":
-                # 处理markdown附件                
-                if "attachments" in cell:
-                    for _, data in cell["attachments"].items():
-                        # 处理图片类型附件
-                        if use_vision and "image/png" in data and len(data["image/png"])>0:
-                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + data["image/png"] } })
-                        elif use_vision and "image/jpeg" in data and len(data["image/jpeg"])>0:
-                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpeg"] } })
-                        elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
-                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
-                        elif use_vision and "image/webp" in data and len(data["image/webp"])>0:
-                            content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + data["image/webp"] } })
-                        # 目前openai vision不支持bmp格式
-            
-            # 如果是raw单元格，目前暂时没有特殊处理
-            if cell["cell_type"] == "raw":
-                pass
-            
-            # 如果是code单元格，目前要处理outputs中的内容
-            if cell["cell_type"] == "code":
-                if "outputs" in cell and len(cell["outputs"])>0:
-                    
-                    for output in cell["outputs"]:
-                        # 一般是打印出来的内容
-                        if output["output_type"] == "stream":
-                            clean_stream = remove_ansi_codes(output["text"])
-                            output_text.append(clean_stream.strip())
-                        # 单元格输出的错误内容
-                        elif output["output_type"] == "error":
-                            # 去掉traceback中的颜色类的ansi符号
-                            clean_traceback = [remove_ansi_codes(text) for text in output["traceback"]]
-                            clean_traceback_text = "\n".join(clean_traceback).strip()
-                            output_text.append(f'''Error Name:{output["ename"]}\nError Value:{output["evalue"]}\nError Traceback:{clean_traceback_text}''')
-                        elif output["output_type"] == "execute_result" or output["output_type"] == "display_data":
-                            if "data" in output and len(output["data"])>0:
-                                # 一般是变量输出的值
-                                if "text/plain" in output["data"] and len(output["data"]["text/plain"])>0:
-                                    output_text.append(output["data"]["text/plain"].strip())
-                                # 一般是plotly的微缩图片
-                                if use_vision and "image/png" in output["data"] and len(output["data"]["image/png"])>0:
-                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + output["data"]["image/png"] } })
-                                elif use_vision and "image/jpeg" in output["data"] and len(output["data"]["image/jpeg"])>0:
-                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + output["data"]["image/jpeg"] } })
-                                elif use_vision and "image/gif" in output["data"] and len(output["data"]["image/gif"])>0:
-                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + output["data"]["image/gif"] } })
-                                elif use_vision and "image/webp" in output["data"] and len(output["data"]["image/webp"])>0:
-                                    content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + output["data"]["image/webp"] } })
-
-            # 如果有图片，则标记为有图片
-            if len(content_image) > 0:
-                has_image = True
-            
-            # 准备该条信息的结构数据
-            content_text = ""
-            if len(source_text) > 0:
-                content_text += source_text + "\n"
-            if len(output_text) > 0:
-                content_text += "\nexecuted outputs:\n" + "\n----------\n".join(output_text) + "\n----------"
-
-            content_text = content_text.strip()
-
-            if len(content_image) > 0 and len(content_text) > 0:
-                message["content"] = [{"type": "text", "text": content_text}]
-                message["content"].extend(content_image)
-            elif len(content_image) > 0 and len(content_text) <= 0:
-                message["content"] = content_image
-            elif len(content_image) <= 0 and len(content_text) > 0:
-                message["content"] = content_text
-            else:
-                continue
-
-            messages.append(message)
-            # 这里只计算文本的token数量，不计算图片的token数量
-            tokens.append(get_num_tokens(content_text, model))
-            
-            # 如果是当前活动单元格，则特别标记，因为有的时候，用户可能会放入下文，如果含有下文，则用户当前活动单元格再重复一次
-            if cell["num_id"] == active_cell_index and id < len(cell_json_arr)-1:
-                is_active_cell_last = False
-                last_message = message.copy()
-                active_cell_tokens = tokens[-1]
-        
-        # 最后检查下活动单元格是不是最后一个，如果不是，则再重复一次
-        if not is_active_cell_last:
-            messages.append(last_message)
-            tokens.append(active_cell_tokens)
-
-        return messages, tokens, has_image
-
+    # 将当前notebook指定的cell和指定的files生成消息
     async def get_all_messages(self, cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt, files):
 
         # 根据files生成引用文件的所有的messasges
         file_messages, file_tokens, file_has_image = await files_to_message(files, ai_name, user_name, ref_name, model, use_vision)
 
         # 先生成本notebook传回的所有messages
-        notebook_messages, notebook_tokens, notebook_has_image = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
+        notebook_messages, notebook_tokens, notebook_has_image = await cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
 
         # 如果有跨文件引用，则为当前notebook的0号起始位置插入提示文件名的message用于区分文件
         if len(file_messages)>0:
@@ -333,6 +193,7 @@ class ChatHandler(APIHandler):
         input_tokens = f"【{str(prompt_token)}】【{','.join(map(str, file_tokens))}】【{','.join(map(str, notebook_tokens))}】=>【{str(prompt_token)}】【{','.join(map(str, final_tokens))}】"
         return final_messages, has_image, total_input, input_tokens
 
+# 将所有指定文件转化为消息
 async def files_to_message(files, ai_name, user_name, ref_name, model, use_vision):
     messages = []
     tokens = []
@@ -343,7 +204,7 @@ async def files_to_message(files, ai_name, user_name, ref_name, model, use_visio
             continue
         # 读取.ipynb文件，ipynb文件特殊处理为对话型的文件，可以有多条message
         if file.endswith(".ipynb"):
-            file_messages, file_tokens, file_has_image = get_message_from_ipynb(file, ai_name, user_name, ref_name, model, use_vision)
+            file_messages, file_tokens, file_has_image = await get_message_from_ipynb(file, ai_name, user_name, ref_name, model, use_vision)
             messages.extend(file_messages)
             tokens.extend(file_tokens)
             has_image = has_image or file_has_image
@@ -377,7 +238,7 @@ async def files_to_message(files, ai_name, user_name, ref_name, model, use_visio
                 content_text = f"########File `{file}` contains following content########\n```\n{file_text}\n```"
             # 如果文件不能解析，则在消息中提示
             else:
-                content_text = f"########File `{file}` can not be parsed currently########"
+                content_text = f"########File format of `{file}` can not be parsed currently########"
             
             # 将文件内容放入message中
             messages.append({
@@ -389,8 +250,8 @@ async def files_to_message(files, ai_name, user_name, ref_name, model, use_visio
 
     return messages, tokens, has_image
 
-# 将ipynb文件转化为messages
-def get_message_from_ipynb(file_path, ai_name, user_name, ref_name, model, use_vision):
+# 将外源路径的ipynb文件转化为messages
+async def get_message_from_ipynb(file_path, ai_name, user_name, ref_name, model, use_vision):
 
     # 打开文件
     with open(file_path, "r", encoding='utf-8') as file:
@@ -522,6 +383,148 @@ def get_message_from_ipynb(file_path, ai_name, user_name, ref_name, model, use_v
     content_text = f"########The following messages are generated from file `{file_path}`########"
     messages.insert(0, {"role": "user", "name": "context", "content": content_text})
     tokens.insert(0, get_num_tokens(content_text, model))
+
+    return messages, tokens, has_image
+
+# 将当前notebook传回的json转化为messages
+async def cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision):
+    # 打印use vision，顺便判断是不是bool值
+    messages = []
+    tokens = []
+    has_image = False
+    is_active_cell_last = True
+    active_cell_tokens = 0
+
+        # 构建用于 ai_name 的正则表达式
+    ai_name_regex = re.compile(r'^{}.*\n?'.format(re.escape(ai_name)), re.IGNORECASE)
+
+    # 构建用于 user_name 的正则表达式
+    user_name_regex = re.compile(r'^{}.*\n?'.format(re.escape(user_name)), re.IGNORECASE)
+
+    # 构建用于 div 标签的正则表达式
+    ref_name_regex = re.compile(r'<div.*?>{}.*?{}.*?</div>$'.format(re.escape(ref_name), re.escape(ref_name)), re.IGNORECASE)
+
+    for id, cell in enumerate(cell_json_arr):
+        message = { 
+            "role": "user",
+            "name": "context"
+        }
+        source_text = ""
+        output_text = []
+        content_image = []
+
+        # 如果source首行含有ai_name或user_name，则更换角色
+        # 检查 ai_name 的匹配，如果匹配移除第一行
+        if ai_name_regex.search(cell["source"]):
+            cell["source"] = ai_name_regex.sub("", cell["source"])
+            message["role"] = "assistant"
+            message["name"] = "assistant"
+        # 检查 user_name 的匹配，如果匹配移除第一行
+        if user_name_regex.search(cell["source"]):
+            cell["source"] = user_name_regex.sub("", cell["source"])
+            message["role"] = "user"
+            message["name"] = "user"
+
+        # 如果是活动单元格，强行标注为user角色
+        if cell["num_id"] == active_cell_index:
+            message["role"] = "user"
+            message["name"] = "user"
+
+        # 如果source尾行含有ref_name，则去除尾行
+        if ref_name_regex.search(cell["source"]):
+            cell["source"] = ref_name_regex.sub("", cell["source"])
+
+        # 处理source文本
+        if len(cell["source"].strip())>0:
+            source_text += cell["source"].strip()
+
+        # 如果是markdown单元格，目前需要单独处理附件中的图片
+        if cell["cell_type"] == "markdown":
+            # 处理markdown附件                
+            if "attachments" in cell:
+                for _, data in cell["attachments"].items():
+                    # 处理图片类型附件
+                    if use_vision and "image/png" in data and len(data["image/png"])>0:
+                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + data["image/png"] } })
+                    elif use_vision and "image/jpeg" in data and len(data["image/jpeg"])>0:
+                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpeg"] } })
+                    elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
+                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
+                    elif use_vision and "image/webp" in data and len(data["image/webp"])>0:
+                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + data["image/webp"] } })
+                    # 目前openai vision不支持bmp格式
+        
+        # 如果是raw单元格，目前暂时没有特殊处理
+        if cell["cell_type"] == "raw":
+            pass
+        
+        # 如果是code单元格，目前要处理outputs中的内容
+        if cell["cell_type"] == "code":
+            if "outputs" in cell and len(cell["outputs"])>0:
+                
+                for output in cell["outputs"]:
+                    # 一般是打印出来的内容
+                    if output["output_type"] == "stream":
+                        clean_stream = remove_ansi_codes(output["text"])
+                        output_text.append(clean_stream.strip())
+                    # 单元格输出的错误内容
+                    elif output["output_type"] == "error":
+                        # 去掉traceback中的颜色类的ansi符号
+                        clean_traceback = [remove_ansi_codes(text) for text in output["traceback"]]
+                        clean_traceback_text = "\n".join(clean_traceback).strip()
+                        output_text.append(f'''Error Name:{output["ename"]}\nError Value:{output["evalue"]}\nError Traceback:{clean_traceback_text}''')
+                    elif output["output_type"] == "execute_result" or output["output_type"] == "display_data":
+                        if "data" in output and len(output["data"])>0:
+                            # 一般是变量输出的值
+                            if "text/plain" in output["data"] and len(output["data"]["text/plain"])>0:
+                                output_text.append(output["data"]["text/plain"].strip())
+                            # 一般是plotly的微缩图片
+                            if use_vision and "image/png" in output["data"] and len(output["data"]["image/png"])>0:
+                                content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + output["data"]["image/png"] } })
+                            elif use_vision and "image/jpeg" in output["data"] and len(output["data"]["image/jpeg"])>0:
+                                content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + output["data"]["image/jpeg"] } })
+                            elif use_vision and "image/gif" in output["data"] and len(output["data"]["image/gif"])>0:
+                                content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + output["data"]["image/gif"] } })
+                            elif use_vision and "image/webp" in output["data"] and len(output["data"]["image/webp"])>0:
+                                content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + output["data"]["image/webp"] } })
+
+        # 如果有图片，则标记为有图片
+        if len(content_image) > 0:
+            has_image = True
+        
+        # 准备该条信息的结构数据
+        content_text = ""
+        if len(source_text) > 0:
+            content_text += source_text + "\n"
+        if len(output_text) > 0:
+            content_text += "\nexecuted outputs:\n" + "\n----------\n".join(output_text) + "\n----------"
+
+        content_text = content_text.strip()
+
+        if len(content_image) > 0 and len(content_text) > 0:
+            message["content"] = [{"type": "text", "text": content_text}]
+            message["content"].extend(content_image)
+        elif len(content_image) > 0 and len(content_text) <= 0:
+            message["content"] = content_image
+        elif len(content_image) <= 0 and len(content_text) > 0:
+            message["content"] = content_text
+        else:
+            continue
+
+        messages.append(message)
+        # 这里只计算文本的token数量，不计算图片的token数量
+        tokens.append(get_num_tokens(content_text, model))
+        
+        # 如果是当前活动单元格，则特别标记，因为有的时候，用户可能会放入下文，如果含有下文，则用户当前活动单元格再重复一次
+        if cell["num_id"] == active_cell_index and id < len(cell_json_arr)-1:
+            is_active_cell_last = False
+            last_message = message.copy()
+            active_cell_tokens = tokens[-1]
+    
+    # 最后检查下活动单元格是不是最后一个，如果不是，则再重复一次
+    if not is_active_cell_last:
+        messages.append(last_message)
+        tokens.append(active_cell_tokens)
 
     return messages, tokens, has_image
 
