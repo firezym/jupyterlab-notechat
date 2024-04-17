@@ -50,11 +50,22 @@ export const parseChatParams = async (input: string): Promise<{ [key: string]: a
   // const regex = /\s--?\w+.*?(?=\s--?\w+|$)/g
   // const matches = modifiedText.match(regex)
 
+  // 使用正则表达式匹配参数文本中含有'.'的路径字符串，并替换路径中的可能得'@'，防止被误解析为参数
+  const placeholder = '<AT>'
+  const texts = input.trim().replace(/\S+?\.\S+/g, (match) => {
+    // 只替换路径中的 '@'，如果包含 '.'
+    if (match.includes('.') && match.includes('@')) {
+      return match.replace(/@/g, placeholder)
+    } else {
+      return match
+    }
+  })
+
   // 改为用@来匹配，因为-很容易和数字中的负号以及id中的-连接符混淆
   const regex = /@(\w+)\s([^@]*)/g
 
   // 使用正则表达式在提供的文本中查找匹配项
-  const matches = input.trim().match(regex)
+  const matches = texts.trim().match(regex)
 
   // 如果找到了匹配项，则遍历它们
   if (matches) {
@@ -71,7 +82,8 @@ export const parseChatParams = async (input: string): Promise<{ [key: string]: a
       if (parts.length === 1) {
         params[key] = ''
       } else {
-        params[key] = parts.slice(1).join(' ')
+        // slice取匹配的参数之后的参数值用空格连接，然后还原placeholder为@
+        params[key] = parts.slice(1).join(' ').replace(new RegExp(placeholder, 'g'), '@')
       }
     })
   }
