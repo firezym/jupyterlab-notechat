@@ -290,22 +290,23 @@ class ChatHandler(APIHandler):
         if not is_active_cell_last:
             messages.append(last_message)
             tokens.append(active_cell_tokens)
-        
-        # 在0号位置插入一个message作为起始点
-        content_text = "########The following messages are generated from current working notebook########"
-        messages.insert(0, {"role": "user", "name": "context", "content": content_text})
-        tokens.insert(0, get_num_tokens(content_text, model))
 
         return messages, tokens, has_image
 
     async def get_all_messages(self, cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt, files):
-        
-        # 先生成本notebook传回的所有messages
-        notebook_messages, notebook_tokens, notebook_has_image = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
 
         # 根据files生成引用文件的所有的messasges
         file_messages, file_tokens, file_has_image = await files_to_message(files, ai_name, user_name, ref_name, model, use_vision)
 
+        # 先生成本notebook传回的所有messages
+        notebook_messages, notebook_tokens, notebook_has_image = await self.cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
+
+        # 如果有跨文件引用，则为当前notebook的0号起始位置插入提示文件名的message用于区分文件
+        if len(file_messages)>0:
+            content_text = "########The following messages are generated from current working notebook########"
+            notebook_messages.insert(0, {"role": "user", "name": "context", "content": content_text})
+            notebook_tokens.insert(0, get_num_tokens(content_text, model))
+        
         messages = file_messages + notebook_messages
         tokens = file_tokens + notebook_tokens
         has_image = file_has_image or notebook_has_image
