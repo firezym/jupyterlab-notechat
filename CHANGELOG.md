@@ -2,6 +2,13 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.3.1 2024 Apr 22
+
+- new feature: support kimi moonshot models such as `@model moonshot-v1-32k` (8k & 128k also supported)
+- set moonshot as default model: Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@model` set as `moonshot-v1-32k` (8k & 128k also supported)
+- 2 ways to setup api keys (methods also apply to `OPENAI_API_KEY`): 1. Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@moonshot_api_key` set as `your_key`; 2. set key to server environment variable `MOONSHOT_API_KEY`, linux `export MOONSHOT_API_KEY=your_key`, windows `$env:MOONSHOT_API_KEY = "your_key"`
+- trivial: update examples
+
 ## 0.3.0 2024 Apr 17
 
 - add major function: notechat now can cross reference external files using `@files file_path/file_name` commands
