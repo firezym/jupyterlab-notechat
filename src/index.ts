@@ -400,6 +400,7 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   userSettingParams['max_output'] = (userSettings.get('max_output').composite as number) || CHAT_PARAMS.max_output
   userSettingParams['temperature'] = (userSettings.get('temperature').composite as number) ?? CHAT_PARAMS.temperature
   userSettingParams['openai_api_key'] = (userSettings.get('openai_api_key').composite as string) || CHAT_PARAMS.openai_api_key
+  userSettingParams['moonshot_api_key'] = (userSettings.get('moonshot_api_key').composite as string) || CHAT_PARAMS.moonshot_api_key
 
   const notebookParams = panel?.model?.getMetadata('notechat') ?? {}
 

@@ -53,7 +53,8 @@ class ChatHandler(APIHandler):
             prompt = (str(data.get("prompt", "You are a helpful and warm-hearted assistant:)")) + " " + data.get("add_prompt", "")).strip()
             model = data.get("model", "gpt-4-turbo")
             vision_model = data.get("vision_model", "gpt-4-turbo")
-            use_vision = parse_param(data, "use_vision", bool, True)
+            # 目前只支持openai的vision模型，如果使用moonshot则不使用vision模型
+            use_vision = False if model.startswith("moonshot") else parse_param(data, "use_vision", bool, True)
             max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
             max_output = parse_param(data, "max_output", int, 4096) # data.get("max_output", 4096)
             temperature = parse_param(data, "temperature", float, 0.5) # data.get("temperature", 0.5)
@@ -62,26 +63,33 @@ class ChatHandler(APIHandler):
             retries = parse_param(data, "retries", int, 3) # retries = data.get("retries", 3)
             delay = parse_param(data, "delay", int, 1) # delay = data.get("delay", 1)
             api_key = data.get("openai_api_key", "None")
+            moonshot_api_key = data.get("moonshot_api_key", "None")
             files = data.get("files", "").split(" ")
             
             # 从cell_json_arr，system prompt和files生成messages
             messages, has_image, total_input, input_tokens = await self.get_all_messages(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt, files)
 
-            # 调用openai_chat函数
-            if has_image and use_vision:
-                notechat_logger.info(f"### PARAMS ### model: {vision_model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
-                logging_messages = copy.deepcopy(messages)
-                for message in logging_messages:
-                    if isinstance(message["content"], list):
-                        for content in message["content"]:
-                            if content["type"] == "image_url":
-                                content["image_url"]["url"] = content["image_url"]["url"][0:30] + "..." + content["image_url"]["url"][-30:]
-                notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
-                response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key)
-            else:
-                notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} ||")
+            # 如果model是moonshot，调用moonshot_chat函数
+            if model.startswith("moonshot"):
+                notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
                 notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
-                response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay, api_key)
+                response = await self.moonshot_chat(messages, model, max_output, temperature, timeout, retries, delay, moonshot_api_key)
+            # 其他情况，调用openai_chat函数
+            else:
+                if has_image and use_vision:
+                    notechat_logger.info(f"### PARAMS ### model: {vision_model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
+                    logging_messages = copy.deepcopy(messages)
+                    for message in logging_messages:
+                        if isinstance(message["content"], list):
+                            for content in message["content"]:
+                                if content["type"] == "image_url":
+                                    content["image_url"]["url"] = content["image_url"]["url"][0:30] + "..." + content["image_url"]["url"][-30:]
+                    notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
+                    response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key)
+                else:
+                    notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
+                    notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
+                    response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay, api_key)
 
             notechat_logger.info(f"### OUTPUT RESPONSE ### {response}")
 
@@ -98,19 +106,12 @@ class ChatHandler(APIHandler):
 
         Args:
             messages: 对话消息列表
-
             model: 模型名称，gpt-4-turbo，gpt-3.5-turbo
-
             max_tokens: 最大生成长度
-
             response_format: 响应格式，值为`text`、`json_object`、None
-
             temperature: 温度参数
-
             timeout: 超时秒数
-
             retries: 重试次数
-
             delay: 重试延迟秒数
         """
         # 首先检查环境变量中的 OPENAI_API_KEY
@@ -120,8 +121,8 @@ class ChatHandler(APIHandler):
             api_key = env_api_key
         elif api_key is None or api_key.lower() == "none":
             # 如果传入的 api_key 不存在或其值为 "none"（不区分大小写）
-            return {"error": "OpenAI API Key未设置"}
-        
+            return {"error": 'OpenAI API Key Missing ... 2 ways to setup api keys: 1. Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@openai_api_key` ; 2. set key to server environment variable `OPENAI_API_KEY`, linux `export OPENAI_API_KEY=your_key`, windows `$env:OPENAI_API_KEY = "your_key"`'}
+               
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
@@ -152,6 +153,55 @@ class ChatHandler(APIHandler):
         # 在达到最大重试次数后，返回错误信息，而不是抛出异常
         return {"error": f"API请求失败，已重试{retries}次，无法获取响应"}
     
+    async def moonshot_chat(self, messages, model="moonshot-v1-8k", max_tokens=None, temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
+        """
+        使用MOONSHOT API进行对话生成
+
+        Args:
+            messages: 对话消息列表
+            model: 模型名称，moonshot-v1-8k，moonshot-v1-32k，moonshot-v1-128k
+            max_tokens: 最大生成长度
+            temperature: 温度参数
+            timeout: 超时秒数
+            retries: 重试次数
+            delay: 重试延迟秒数
+        """
+        # 首先检查环境变量中的 MOONSHOT_API_KEY
+        env_api_key = os.environ.get("MOONSHOT_API_KEY")
+        if env_api_key:
+            # 如果环境变量中的 OPENAI_API_KEY 存在且非空，优先使用环境变量中的值
+            api_key = env_api_key
+        elif api_key is None or api_key.lower() == "none":
+            # 如果传入的 api_key 不存在或其值为 "none"（不区分大小写）
+            return {"error": 'KIMI MOONSHOT API Key Missing ... 2 ways to setup api keys: 1. Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@moonshot_api_key` ; 2. set key to server environment variable `MOONSHOT_API_KEY`, linux `export MOONSHOT_API_KEY=your_key`, windows `$env:MOONSHOT_API_KEY = "your_key"`'}
+        
+        url = "https://api.moonshot.cn/v1/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + api_key,
+        }
+        data = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            data["max_tokens"] = max_tokens
+        
+        async with httpx.AsyncClient() as client:
+            attempt = 0
+            while attempt < retries:
+                try:
+                    response = await client.post(url, headers=headers, json=data, timeout=timeout)
+                    return response.json()
+                except Exception as e:
+                    logging.error(f"尝试 {attempt+1} / {retries}: 错误 - {str(e)}")
+                    await asyncio.sleep(delay)
+                    attempt += 1
+
+        # 在达到最大重试次数后，返回错误信息，而不是抛出异常
+        return {"error": f"API请求失败，已重试{retries}次，无法获取响应"}
+    
     # 将当前notebook指定的cell和指定的files生成消息
     async def get_all_messages(self, cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt, files):
 
@@ -160,7 +210,7 @@ class ChatHandler(APIHandler):
             file_messages, file_tokens, file_has_image = await files_to_message(files, ai_name, user_name, ref_name, model, use_vision)
         except Exception as e:
             error_traceback = traceback.format_exc()  # 获取完整的堆栈跟踪
-            content_text = f"########Fetching files `{files}` content error########\n```\nException:\n{e}\n\nTraceBack:\n{error_traceback}\n```"
+            content_text = f"########Fetching files `{files}` content error########\n\nException:\n{e}\n\nTraceBack:\n{error_traceback}"
             file_messages = [{
                 "role": "user",
                 "name": "context",
@@ -175,7 +225,7 @@ class ChatHandler(APIHandler):
             notebook_messages, notebook_tokens, notebook_has_image = await cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision)
         except Exception as e:
             error_traceback = traceback.format_exc()  # 获取完整的堆栈跟踪
-            content_text = f"########Fetching current notebook content error########\n```\nException:\n{e}\n\nTraceBack:\n{error_traceback}\n```"
+            content_text = f"########Fetching current notebook content error########\n\nException:\n{e}\n\nTraceBack:\n{error_traceback}"
             notebook_messages = [{
                 "role": "user",
                 "name": "context",
@@ -186,6 +236,7 @@ class ChatHandler(APIHandler):
             notechat_logger.error(f"### NOTEBOOK PROCESSING ERROR ### Exception: {str(e)} || TraceBack: {error_traceback} ||")
 
         # 如果有跨文件引用，则为当前notebook的0号起始位置插入提示文件名的message用于区分文件
+        # 如果没有跨文件引用，则不插入提示文件名的message，这样不用引起混淆
         if len(file_messages)>0:
             content_text = "########The following messages are generated from current working notebook########"
             notebook_messages.insert(0, {"role": "user", "name": "context", "content": content_text})
@@ -259,7 +310,7 @@ async def files_to_message(files, ai_name, user_name, ref_name, model, use_visio
 
             # 解析文件名要显示出来
             if file_text is not None:
-                content_text = f"########File `{file}` contains following content########\n```\n{file_text}\n```"
+                content_text = f"########File `{file}` contains following content########\n\n{file_text}"
             # 如果文件不能解析，则在消息中提示
             else:
                 content_text = f"########File format of `{file}` can not be parsed currently########"
@@ -628,7 +679,11 @@ def process_source(source, ai_name, user_name, ref_name):
 
 # 计算token数量
 def get_num_tokens(text, model):
-    encoding = tiktoken.encoding_for_model(model)
+    # tiktoken暂时还没有支持moonshot，使用gpt-4-turbo暂时替代
+    if model.startswith("moonshot"):
+        encoding = tiktoken.encoding_for_model("gpt-4-turbo")
+    else:
+        encoding = tiktoken.encoding_for_model(model)
     return len(encoding.encode(text))
 
 # 解析参数

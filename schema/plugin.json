@@ -93,7 +93,7 @@
       "type": "integer",
       "title": "@num_prev_cells : Number of Cells Before the Active Cell As Context",
       "description": "These cells' code and content before the active cell will be sent to the AI assistant as context if no other addtional parameters are specified.",
-      "default": 10
+      "default": 20
     },
     "model": {
       "type": "string",
@@ -134,6 +134,12 @@
       "type": "string",
       "title": "@openai_api_key : OpenAI API Key",
       "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `OPENAI_API_KEY`.",
+      "default": "None"
+    },
+    "moonshot_api_key": {
+      "type": "string",
+      "title": "@moonshot_api_key : Moonshot Kimi API Key",
+      "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `MOONSHOT_API_KEY`.",
       "default": "None"
     }
   },
