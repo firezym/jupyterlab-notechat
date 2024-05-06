@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5", "hatch-nodejs-version>=0.3.2"]
+requires = ["hatchling>=1.5.0", "jupyterlab>=4.1.2,<5", "hatch-nodejs-version>=0.3.2"]
 build-backend = "hatchling.build"
 
 [project]
@@ -29,7 +29,7 @@ dependencies = [
     "PyMuPDF>=1.18.0",
     "pandas>=1.2.0",
     "openpyxl>=3.0.10",
-    "xlrd==1.2.0",
+    "xlrd>=1.2.0",
     "beautifulsoup4>=4.9.0",
     "html5lib>=1.1",
     "python-docx>=0.8.10",
