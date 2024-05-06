@@ -2,6 +2,9 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+# 0.3.2 2024 May 6
+- trivial: optimize package dependency, help and examples
+
 ## 0.3.1 2024 Apr 22
 
 - new feature: support kimi moonshot models such as `@model moonshot-v1-32k` (8k & 128k also supported)
