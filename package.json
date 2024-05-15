@@ -1,6 +1,6 @@
 {
     "name": "jupyterlab-notechat",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "description": "Chat with an AI Assistant in the Notebook",
     "keywords": [
         "jupyter",

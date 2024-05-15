@@ -2,7 +2,11 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
-# 0.3.2 2024 May 6
+## 0.3.3 2024 May 15
+
+- trivial: update default model to gpt-4o
+
+## 0.3.2 2024 May 6
 
 - trivial: optimize package dependency, help and examples
 
