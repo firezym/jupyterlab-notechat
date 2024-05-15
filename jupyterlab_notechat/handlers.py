@@ -51,8 +51,8 @@ class ChatHandler(APIHandler):
             user_name = data.get("user_name", "**user**")
             ref_name = data.get("ref_name", "_ref")
             prompt = (str(data.get("prompt", "You are a helpful and warm-hearted assistant:)")) + " " + data.get("add_prompt", "")).strip()
-            model = data.get("model", "gpt-4-turbo")
-            vision_model = data.get("vision_model", "gpt-4-turbo")
+            model = data.get("model", "gpt-4o")
+            vision_model = data.get("vision_model", "gpt-4o")
             # 目前只支持openai的vision模型，如果使用moonshot则不使用vision模型
             use_vision = False if model.startswith("moonshot") else parse_param(data, "use_vision", bool, True)
             max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
@@ -100,13 +100,13 @@ class ChatHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": "API请求处理出错: " + str(e)}))
 
-    async def openai_chat(self, messages, model="gpt-4-turbo", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
+    async def openai_chat(self, messages, model="gpt-4o", max_tokens=None, response_format="text", temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
         """
         使用OpenAI API进行对话生成
 
         Args:
             messages: 对话消息列表
-            model: 模型名称，gpt-4-turbo，gpt-3.5-turbo
+            model: 模型名称，gpt-4o，gpt-4-turbo，gpt-3.5-turbo
             max_tokens: 最大生成长度
             response_format: 响应格式，值为`text`、`json_object`、None
             temperature: 温度参数

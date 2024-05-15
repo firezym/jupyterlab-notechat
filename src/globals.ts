@@ -14,8 +14,8 @@ export const SETTINGS = {
 // 该参数主要和AI模型有关
 export const CHAT_PARAMS = {
   prompt: 'You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics.',
-  model: 'gpt-4-turbo',
-  vision_model: 'gpt-4-turbo',
+  model: 'gpt-4o',
+  vision_model: 'gpt-4o',
   use_vision: true,
   max_input: 80000,
   max_output: 4096,
@@ -35,7 +35,7 @@ const help_refs = '【@refs】 指定当前单元格和AI对话所引用的其�
 const help_files = '【@files file_path/file_name】 可以进行跨多个文件全文引用，请避免包含空格等容易产生混淆的字符，`@`字符已经过特殊处理路径中可包含，目前支持的类型包括文本类txt/md/py/js/ts/sh/bat/json/xml/log/config/ini/yaml/yml、表格类csv/xlsx/xls、文档类pdf/docx/pptx/html/htm，其中出了ipynb文件可以包含图片，其他文件解析尚未包含图片 <br>'
 const help_cell_span = '【@num_prev_cells 8】 在当前单元格对话中覆盖系统设定的向前引用范围至8 <br>'
 const help_prompt = '【@prompt xyz】 用xyz替换系统默认的prompt提示词，请勿使用换行符 <br> 【@add_prompt xyz】 将xyz添加到系统默认的prompt后组合成为新的提示词 <br>'
-const help_model = '【@model gpt-3.5-turbo】 指定的LLM模型为gpt-3.5方便低价测试初步想法，请查看openai官网获取模型信息，默认@model gpt-4-turbo，也支持@model moonshot-v1-32k （也支持8k、128k） <br> 【@use_vison false】 不使用图片视觉模型，默认使用true，可以在markdown单元格中直接粘贴截图或图片，但图片地址目前不支持 <br>【@max_input/@max_output 888】 设定input和output最大的token数量，这里超过max_input就会按照绝对id的原始顺序截断，但prompt和当前单元格优先保留，但图片tokens数量目前未支持计入 <br> 【@temperature 0.5】 0~1直接设定LLM模型生成的随机性 <br> 【@timeout 600】 设定模型最长响应时间 <br>'
+const help_model = '【@model gpt-3.5-turbo】 指定的LLM模型为gpt-3.5方便低价测试初步想法，请查看openai官网获取模型信息，默认@model gpt-4o，也支持@model moonshot-v1-32k （也支持8k、128k） <br> 【@use_vison false】 不使用图片视觉模型，默认使用true，可以在markdown单元格中直接粘贴截图或图片，但图片地址目前不支持 <br>【@max_input/@max_output 888】 设定input和output最大的token数量，这里超过max_input就会按照绝对id的原始顺序截断，但prompt和当前单元格优先保留，但图片tokens数量目前未支持计入 <br> 【@temperature 0.5】 0~1直接设定LLM模型生成的随机性 <br> 【@timeout 600】 设定模型最长响应时间 <br>'
 const help_nb_param = '【单个notebook级别参数设定】 如果要保证可复现性，可以在notebook右上角的Property Inspector（齿轮图标）-> ADVANCED TOOLS -> Notebook metadata 中，加入`"notechat":{"param":value}`来覆盖参数，比如设定notebook级别的prompt，注意这里的param不用加@，覆盖优先级为user>assistant>notebook>settings <br><br>'
 const help_tabulate = '3. 表格识别：目前没有很好的处理html的工具，推荐使用pandas处理数据，并尽量用df.to_markdown()转化成为markdown表格格式，LLM能更好处理识别 <br><br>'
 const help_run = '4. 支持从上到下顺序运行python code cell和LLM支持的user及assistant的对话流：方便长流程工作，比如自动化更新带数据带LLM总结分析的报告 <br><br>'

@@ -98,13 +98,13 @@
     "model": {
       "type": "string",
       "title": "@model : Text Model",
-      "default": "gpt-4-turbo"
+      "default": "gpt-4o"
     },
     "vision_model": {
       "type": "string",
       "title": "@vision_model : Vision Model",
       "description": "This vision model will be used if there is picture in the context. Currently only png, jpeg, gif and webp formats are supported",
-      "default": "gpt-4-turbo"
+      "default": "gpt-4o"
     },
     "use_vision": {
       "type": "boolean",
