@@ -679,11 +679,11 @@ def process_source(source, ai_name, user_name, ref_name):
 
 # 计算token数量
 def get_num_tokens(text, model):
-    # tiktoken暂时还没有支持moonshot，使用gpt-4-turbo暂时替代
-    if model.startswith("moonshot"):
-        encoding = tiktoken.encoding_for_model("gpt-4-turbo")
-    else:
+    # 遇到tiktoken暂时还没有支持的model，使用gpt-4-turbo暂时替代
+    try:
         encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.encoding_for_model("gpt-4-turbo")
     return len(encoding.encode(text))
 
 # 解析参数
