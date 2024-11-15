@@ -52,7 +52,7 @@ export const getChatCompletions = async (cellContext: string, userSettingsData: 
     prompt: CHAT_PARAMS.prompt,
     model: 'gpt-3.5-turbo',
     response_format: 'text',
-    temperature: 1.0,
+    temperature: 0.6,
     timeout: 200,
     retries: 2,
     delay: 0.5

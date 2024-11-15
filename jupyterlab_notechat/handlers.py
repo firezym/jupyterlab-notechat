@@ -61,7 +61,7 @@ class ChatHandler(APIHandler):
             use_vision = False if model.startswith("moonshot") else parse_param(data, "use_vision", bool, True)
             max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
             max_output = parse_param(data, "max_output", int, 4096) # data.get("max_output", 4096)
-            temperature = parse_param(data, "temperature", float, 1.0) # data.get("temperature", 1.0)
+            temperature = parse_param(data, "temperature", float, 0.6) # data.get("temperature", 0.6)
             response_format = data.get("response_format", "text")
             timeout = parse_param(data, "timeout", int, 600) # timeout = data.get("timeout", 600)
             retries = parse_param(data, "retries", int, 3) # retries = data.get("retries", 3)
@@ -104,7 +104,7 @@ class ChatHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": "API请求处理出错: " + str(e)}))
 
-    async def openai_chat(self, messages, model="gpt-4o", max_tokens=None, response_format="text", temperature=1.0, timeout=300, retries=3, delay=1, api_key=None):
+    async def openai_chat(self, messages, model="gpt-4o", max_tokens=None, response_format="text", temperature=0.6, timeout=300, retries=3, delay=1, api_key=None):
         """
         使用OpenAI API进行对话生成
 
