@@ -33,7 +33,8 @@ dependencies = [
     "beautifulsoup4>=4.9.0",
     "html5lib>=1.1",
     "python-docx>=0.8.10",
-    "python-pptx>=0.6.18"
+    "python-pptx>=0.6.18",
+    "concurrent-log-handler>=0.9.20"
 ]
 dynamic = ["version", "description", "authors", "urls", "keywords"]
 
