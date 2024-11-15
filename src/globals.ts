@@ -19,7 +19,7 @@ export const CHAT_PARAMS = {
   use_vision: true,
   max_input: 80000,
   max_output: 4096,
-  temperature: 0.5,
+  temperature: 1.0,
   response_format: 'text',
   timeout: 200,
   retries: 2,
