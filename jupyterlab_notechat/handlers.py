@@ -141,6 +141,18 @@ class ChatHandler(APIHandler):
             data["max_tokens"] = max_tokens
         if response_format is not None:
             data["response_format"] = {"type": response_format}
+        # 如果是o1模型，则有一些参数要特殊处理
+        if model.startswith("o1"):
+            # 检查message的第一个message的role是否是system，如果是则替换成user
+            if len(messages)>0 and messages[0]["role"] == "system":
+                messages[0]["role"] = "user"
+            # 检查是否有max_tokens参数，如果有则替换成max_completion_tokens
+            if "max_tokens" in data:
+                data["max_completion_tokens"] = data["max_tokens"]
+                del data["max_tokens"]
+            # 检查temperature如果不是1，则强制设定为1
+            if temperature != 1.0:
+                data["temperature"] = 1.0
         # proxy = os.environ["http_proxy"]
         # async with httpx.AsyncClient(proxies={"http://": "http://"+proxy, "https://": "https://"+proxy}) as client:
         async with httpx.AsyncClient() as client:
