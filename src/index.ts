@@ -741,7 +741,7 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
   const numPrevCells = (userSettings.get('num_prev_cells').composite as number) || SETTINGS.num_prev_cells
   userSettingParams['num_prev_cells'] = numPrevCells
 
-  let displayString = '--------<br>参数解析：'
+  let displayString = '--------<br>Params Parsed ：'
 
   const cellString = panel.content.activeCell?.model.toJSON().source?.toString() ?? ''
   const lines = cellString.trim().split('\n')
@@ -759,11 +759,11 @@ const getCellParamInfo = async (panel: NotebookPanel | null, userSettings: ISett
     counts++
   }
 
-  displayString = displayString + `一共${counts}个参数：|| `
-  displayString = displayString + paramString + `<br>--------<br>ID引用解析：当前id ${panel.content.activeCellIndex}，`
+  displayString = displayString + `total ${counts} params：|| `
+  displayString = displayString + paramString + `<br>--------<br>Sequetial IDs Parsed: current ID ${panel.content.activeCellIndex}，`
 
   const refs = await parseCellReferences(cellParams[SETTINGS.cell_param_name_refs], panel.content.activeCellIndex, panel.content.widgets.length - 1, cellParams['num_prev_cells'])
-  displayString = displayString + `一共${refs.length}个id：|| `
+  displayString = displayString + `total ${refs.length} ids：|| `
   displayString = displayString + refs.join(', ') + ' ||'
 
   return displayString
