@@ -60,7 +60,9 @@ class ChatHandler(APIHandler):
             # 目前只支持openai的vision模型，如果使用moonshot则不使用vision模型
             use_vision = False if model.startswith("moonshot") else parse_param(data, "use_vision", bool, True)
             max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
-            max_output = parse_param(data, "max_output", int, 4096) # data.get("max_output", 4096)
+            # 如果max_output为0，则设置为None，表示不限制
+            max_output = parse_param(data, "max_output", int, 0) # data.get("max_output", 0)
+            max_output = None if max_output <= 0 else max_output
             temperature = parse_param(data, "temperature", float, 0.6) # data.get("temperature", 0.6)
             response_format = data.get("response_format", "text")
             timeout = parse_param(data, "timeout", int, 600) # timeout = data.get("timeout", 600)

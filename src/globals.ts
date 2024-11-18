@@ -18,7 +18,7 @@ export const CHAT_PARAMS = {
   vision_model: 'gpt-4o',
   use_vision: true,
   max_input: 80000,
-  max_output: 4096,
+  max_output: 0,
   temperature: 0.6,
   response_format: 'text',
   timeout: 200,

@@ -121,8 +121,8 @@
     "max_output": {
       "type": "integer",
       "title": "@max_output : Number of Max Tokens for Chat Response",
-      "description": "Chat completion will stop when response exceeds this limit.",
-      "default": 4096
+      "description": "Chat completion will stop when response exceeds this limit. Less or equal to 0 means no limit.",
+      "default": 0
     },
     "temperature": {
       "type": "number",
