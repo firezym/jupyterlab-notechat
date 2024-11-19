@@ -50,7 +50,7 @@ export async function requestAPI<T>(endPoint = '', init: RequestInit = {}): Prom
 export const getChatCompletions = async (cellContext: string, userSettingsData: any): Promise<string> => {
   const defaultSettings = {
     prompt: CHAT_PARAMS.prompt,
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     response_format: 'text',
     temperature: 0.6,
     timeout: 200,
