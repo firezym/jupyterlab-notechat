@@ -1,6 +1,8 @@
 // 定义全局变量
+// Define global variables
 
 // 该参数主要和JupyterLab设置有关
+// This parameter is mainly related to JupyterLab settings
 export const SETTINGS = {
   plugin_id: 'jupyterlab-notechat:plugin',
   ai_name: '**assistant**',
@@ -12,6 +14,7 @@ export const SETTINGS = {
 }
 
 // 该参数主要和AI模型有关
+// This parameter is mainly related to the AI model
 export const CHAT_PARAMS = {
   prompt: 'You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics.',
   model: 'gpt-4o',
@@ -29,6 +32,7 @@ export const CHAT_PARAMS = {
 }
 
 // 动态加载说明配置文件
+// Load help configuration file dynamically
 let help_intro = '';
 let help_usage = '';
 let help_param = '';
@@ -44,10 +48,12 @@ let help_source = '';
 let help_info = '';
 
 // 检测浏览器或JupyterLab的语言环境
+// Detect the language environment of the browser or JupyterLab
 const language = navigator.language || 'en';
 
 if (language.startsWith('zh')) {
   // 加载中文说明配置文件
+  // Load the Chinese help configuration file
   help_intro = 'NoteChat使用帮助 <br><br> Notechat工具初衷是让用户有更精准可控的对话，包括不仅局限于精确指定上下文引用、修改AI生成的文本作为上下文、在程序中直接引用用户和AI生成的文本等等，使得用户更好利用LLM的长处，所以除了常见的对话外（虽然使用体验不及对话流），还可以辅助书写结构化的中长篇报告、文本对比分析、获取和沉淀知识、辅助编程创建分析模型等任务。 <br><br>';
   help_usage = '1. 创建用户消息：直接新建单元格输入你的问题，或使用`Add a User Chat Cell`指令或点击对应的菜单或单元格按钮添加一个以**user**形式开头的markdown单元格，能够更明确这是用户创建的一个对话消息 <br><br>';
   help_param = '2. 参数设定：在cell的第一行中添加以`@参数 xxx`形式的自定义参数赋值，但请勿在其中使用转义换行符，主要参数及示例如下： <br>';
@@ -62,6 +68,7 @@ if (language.startsWith('zh')) {
   help_source = '5. 程序文本和LLM文本交互：markdown单元格和code单元格的source文本，都可以在当前kernel程序中直接按照_refs["唯一id"]形式引用，方便用户利用python和LLM之间做文本交互输入输出 <br><br>';
   help_info = '6. Info、Help按键和指令：获得当前单元格xxxxxx字符串形式的唯一id以及从0开始计数的绝对id，当前单元格所要引用的id，@param的个性化参数等信息，其中点击时，当前单元格的唯一id引用将会拷贝到粘贴板中方便用户引用，跨notebook的请直接用python程序按照json数据读取.ipynb文件，从中找到唯一id所对应的单元格信息 <br><br>';
 } else {
+  // 加载英文说明配置文件
   // Load the English help configuration file
   help_intro = 'NoteChat Usage Help <br><br> The original intention of the NoteChat tool is to allow users to have more precise and controllable conversations, including but not limited to precisely specifying context references, modifying AI-generated text as context, directly referencing user and AI-generated texts in the program, etc., so that users can better utilize the strengths of LLMs. Therefore, besides common conversations (although the user experience is not as good as dialogue flow), it can also assist in writing structured medium and long reports, text comparison analysis, acquiring and accumulating knowledge, assisting programming to create analysis models, and other tasks. <br><br>';
   help_usage = '1. Create a user message: Directly create a new cell to input your question, or use the `Add a User Chat Cell` command, or click the corresponding menu or cell button to add a markdown cell starting with **user**, which can more clearly indicate that this is a dialogue message created by the user. <br><br>';
@@ -79,4 +86,5 @@ if (language.startsWith('zh')) {
 }
 
 // 拼接所有帮助内容
+// Concatenate all help content
 export const HELP = `${help_intro}${help_usage}${help_param}${help_refs}${help_files}${help_cell_span}${help_prompt}${help_model}${help_nb_param}${help_tabulate}${help_run}${help_source}${help_info}`
