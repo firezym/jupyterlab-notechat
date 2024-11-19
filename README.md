@@ -1,6 +1,6 @@
 # NoteChat Extension Introduction
 
-[Introduction Screenshots](https://github.com/user-attachments/assets/b4b8a840-e5e9-46ae-ac5f-4fd218e253b3)
+[Introduction Video](https://github.com/user-attachments/assets/b4b8a840-e5e9-46ae-ac5f-4fd218e253b3)
 
 # Installation
 
@@ -71,6 +71,7 @@ Currently, there are no good tools to handle HTML. It is recommended to use pand
 ## **Sequencial execution**
 
 Supports running python code cells and LLM-supported user and assistant dialogue flows in sequence from top to bottom\*\*: Convenient for long-process work, such as automatically updating reports with data and LLM summary analysis.
+
 ![Sequential Execution](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_run_sequential.bmp)
 
 ## **Interaction between python kernel and LLM messages**
@@ -80,7 +81,9 @@ The source text of markdown cells and code cells can be directly referenced in t
 ## **Info, help buttons and commands**
 
 Obtain the unique id of the current cell in the form of a string xxxxxx and the absolute id counting from 0, the ids that the current cell wants to reference, personalized parameters of @param, and other information. When clicked, the unique id reference of the current cell will be copied to the clipboard for user reference. For cross-notebook use, please directly use a Python program to read the .ipynb file as JSON data to find the cell information corresponding to the unique id.
+
 ![Show Refs1](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_show_refs.bmp)
+
 ![Show Refs2](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_show_refs_result.bmp)
 
 # Below is a standard README for jupyterlab extension
