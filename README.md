@@ -1,6 +1,6 @@
 # NoteChat Extension Introduction
 
-![Intro Gif](images/intro_how_to_use.gif)
+![Intro Gif](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_how_to_use.gif)
 
 # Installation
 
@@ -36,11 +36,11 @@ $env:OPENAI_API_KEY = "your_key"
 - acquiring LLM knowledge to notebook
 - ...
 
-![Basic Interface](images/intro_menu.bmp)
+![Basic Interface](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_menu.bmp)
 
 ## **Create a user message**
 
-Directly create a new cell to input your question, or use the `Add a User Chat Cell` command, or click the corresponding menu or cell button ![Cell Button](images/intro_add_message.bmp) to add a markdown cell starting with **user**, which can more clearly indicate that this is a dialogue message created by the user.
+Directly create a new cell to input your question, or use the `Add a User Chat Cell` command, or click the corresponding menu or cell button ![Cell Button](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_add_message.bmp) to add a markdown cell starting with **user**, which can more clearly indicate that this is a dialogue message created by the user.
 
 ## **Parameter settings in line**
 
@@ -62,7 +62,7 @@ Add custom parameter assignments in the form of `@parameter xxx` on the first li
 - **`@temperature 0.5`** Set the randomness of the LLM model directly between 0~1.
 - **`@timeout 600`** Set the maximum response time of the model.
 - **`Single notebook-level parameter settings`** To ensure reproducibility, you can add `"notechat":{"param":value}` in the Notebook metadata via the Property Inspector (gear icon) in the top right corner of the notebook under ADVANCED TOOLS to override parameters, such as setting the notebook-level prompt. Note that the param here does not need to add @. The override priority is user > assistant > notebook > settings.
-  ![Parameter Settings](images/intro_notebook_level_params.bmp)
+  ![Parameter Settings](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_notebook_level_params.bmp)
 
 ## **Table recognition**
 
@@ -71,7 +71,7 @@ Currently, there are no good tools to handle HTML. It is recommended to use pand
 ## **Sequencial execution**
 
 Supports running python code cells and LLM-supported user and assistant dialogue flows in sequence from top to bottom\*\*: Convenient for long-process work, such as automatically updating reports with data and LLM summary analysis.
-![Sequential Execution](images/intro_run_sequential.bmp)
+![Sequential Execution](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_run_sequential.bmp)
 
 ## **Interaction between python kernel and LLM messages**
 
@@ -80,8 +80,8 @@ The source text of markdown cells and code cells can be directly referenced in t
 ## **Info, help buttons and commands**
 
 Obtain the unique id of the current cell in the form of a string xxxxxx and the absolute id counting from 0, the ids that the current cell wants to reference, personalized parameters of @param, and other information. When clicked, the unique id reference of the current cell will be copied to the clipboard for user reference. For cross-notebook use, please directly use a Python program to read the .ipynb file as JSON data to find the cell information corresponding to the unique id.
-![Show Refs1](images/intro_show_refs.bmp)
-![Show Refs2](images/intro_show_refs_result.bmp)
+![Show Refs1](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_show_refs.bmp)
+![Show Refs2](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_show_refs_result.bmp)
 
 # Below is a standard README for jupyterlab extension
 
