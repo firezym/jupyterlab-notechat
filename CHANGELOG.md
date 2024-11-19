@@ -2,7 +2,7 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
-## 1.0.1 2024 Nov 19
+## 1.0.2 2024 Nov 19
 
 - automatic pypi release
 
