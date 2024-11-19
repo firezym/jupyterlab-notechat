@@ -2,6 +2,10 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.0.3 2024 Nov 19
+
+- demo gif to lower resolution for pypi website
+
 ## 1.0.2 2024 Nov 19
 
 - automatic pypi release
