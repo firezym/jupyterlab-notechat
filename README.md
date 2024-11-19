@@ -2,6 +2,23 @@
 
 ![Intro Gif](images/intro_how_to_use.gif)
 
+# Installation
+
+```bash
+# Install NoteChat Extension
+pip install jupyterlab-notechat
+
+# Define LLM secret keys in the extension settings or in the environment variables
+# Linux
+export OPENAI_API_KEY=your_key
+# Windows
+$env:OPENAI_API_KEY = "your_key"
+```
+
+# Highlights
+
+**It is someway similar to Github Copilot or Cursor under jupyterlab environment. But it does not have fast code generation capabilities. It is more like a chatbot that can be used interactively in jupyterlab.**
+
 **The original intention of the NoteChat tool is to allow users to have `more precise and controllable conversations`, including but not limited to:**
 - precisely specifying context references
 - modifying AI-generated text as context
