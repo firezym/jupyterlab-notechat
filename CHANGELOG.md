@@ -2,6 +2,10 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.0.1 2024 Nov 19
+
+- automatic pypi release
+
 ## 1.0.0 2024 Nov 19
 
 - add o1 model support by specifying several parameters:
