@@ -2,6 +2,17 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.0.0 2024 Nov 19
+
+- add o1 model support by specifying several parameters:
+  - 1. no system message;
+  - 2. temperature only accepts 1.0;
+  - 3. max_tokens field -> max_completion_tokens
+- change logging file handler from TimedRotatingFileHandler to ConcurrentRotatingFileHandler
+- add en/zh language support for help menu
+- add readme for github and pypi
+- add gif demo in readme
+
 ## 0.3.3 2024 May 15
 
 - trivial: update default model to gpt-4o
