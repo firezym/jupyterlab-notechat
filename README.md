@@ -96,6 +96,18 @@ for the frontend extension.
 ## Requirements
 
 - JupyterLab >= 4.0.0
+- jupyter_server>=2.0.1,<3
+- httpx>=0.25.2
+- tiktoken>=0.5.0
+- PyMuPDF>=1.18.0
+- pandas>=1.2.0
+- openpyxl>=3.0.10
+- xlrd>=1.2.0
+- beautifulsoup4>=4.9.0
+- html5lib>=1.1
+- python-docx>=0.8.10
+- python-pptx>=0.6.18
+- concurrent-log-handler>=0.9.20
 
 ## Install
 
