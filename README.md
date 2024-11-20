@@ -1,6 +1,6 @@
 # NoteChat Extension Introduction
 
-[Introduction Video](https://github.com/user-attachments/assets/b4b8a840-e5e9-46ae-ac5f-4fd218e253b3)
+[中文阅读](https://github.com/firezym/jupyterlab-notechat/blob/main/examples/README-使用说明-中文.ipynb) || [Introduction Video](https://github.com/user-attachments/assets/b4b8a840-e5e9-46ae-ac5f-4fd218e253b3)
 
 # Installation
 
@@ -21,15 +21,16 @@ $env:OPENAI_API_KEY = "your_key"
 
 **The original intention of the NoteChat tool is to allow users to have `more precise and controllable conversations`, including but not limited to:**
 
-- precisely specifying context references
-- modifying AI-generated text as context
-- directly referencing python cell code/outputs and AI-generated texts in the program reciprocally
+- **include all possible notebook elements the conversation context, such as cell execution outputs, code and markdown inputs, external files, etc.**
+- **precisely specifying cell or file references by unique, relative or range cell IDs**
+- **python kernel can directly refer notebook cell code/outputs and AI-generated texts reciprocally**
+- **execute python code and AI-generated texts in sequence**
+- manipulate AI-generated text manually as context
 - ...
 
 **So that users can better utilize the strengths of LLMs, including:**
 
 - common conversations (although the user experience is not as good as dialogue flow)
-- text manipulation of LLM dialogue flow within markdown or code cells
 - writing structured essay or long reports
 - data and text analysis with LLM models
 - assisting programming
@@ -64,10 +65,6 @@ Add custom parameter assignments in the form of `@parameter xxx` on the first li
 - **`Single notebook-level parameter settings`** To ensure reproducibility, you can add `"notechat":{"param":value}` in the Notebook metadata via the Property Inspector (gear icon) in the top right corner of the notebook under ADVANCED TOOLS to override parameters, such as setting the notebook-level prompt. Note that the param here does not need to add @. The override priority is user > assistant > notebook > settings.
   ![Parameter Settings](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_notebook_level_params.bmp)
 
-## **Table recognition**
-
-Currently, there are no good tools to handle HTML. It is recommended to use pandas to process data and try to convert it into markdown table format using df.to_markdown(), which LLM can better recognize and process.
-
 ## **Sequencial execution**
 
 Supports running python code cells and LLM-supported user and assistant dialogue flows in sequence from top to bottom\*\*: Convenient for long-process work, such as automatically updating reports with data and LLM summary analysis.
@@ -78,6 +75,26 @@ Supports running python code cells and LLM-supported user and assistant dialogue
 
 The source text of markdown cells and code cells can be directly referenced in the current kernel program in the form of `_refs["unique id"]`, facilitating users to perform text input and output interactions between python kernel and LLM messages.
 
+## **Cross-notebook cell reference**
+
+First, use the shortcut key `ALT+Q` or the `Show & Copy Cell ID for Ref` button in the toolbar in the external notebook to obtain the target cell ID. Then, load the external notebook using a JSON component and retrieve the relevant content of the target cell.
+
+```python
+import json
+notebook_path = 'examples/README-Example.ipynb'
+target_cell_id = '7ee61417-0c9b-495d-9015-ad17c5320358'
+with open(notebook_path, 'r', encoding='utf-8') as notebook_file:
+    notebook_content = json.load(notebook_file)
+for cell in notebook_content['cells']:
+    if cell.get('id') == target_cell_id:
+        # Retrieve the source code
+        target_source = cell.get('source', [])
+        # Retrieve the outputs
+        target_outputs = cell.get('outputs', [])
+        break
+print(target_source, target_outputs)
+```
+
 ## **Info, help buttons and commands**
 
 Obtain the unique id of the current cell in the form of a string xxxxxx and the absolute id counting from 0, the ids that the current cell wants to reference, personalized parameters of @param, and other information. When clicked, the unique id reference of the current cell will be copied to the clipboard for user reference. For cross-notebook use, please directly use a Python program to read the .ipynb file as JSON data to find the cell information corresponding to the unique id.
@@ -85,6 +102,10 @@ Obtain the unique id of the current cell in the form of a string xxxxxx and the 
 ![Show Refs1](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_show_refs.bmp)
 
 ![Show Refs2](https://raw.githubusercontent.com/firezym/jupyterlab-notechat/main/images/intro_show_refs_result.bmp)
+
+## **Table recognition**
+
+Currently, there are no good tools to handle HTML. It is recommended to use pandas to process data and try to convert it into markdown table format using df.to_markdown(), which LLM can better recognize and process.
 
 # Below is a standard README for jupyterlab extension
 
