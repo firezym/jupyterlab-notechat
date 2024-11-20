@@ -1,6 +1,8 @@
 # NoteChat Extension Introduction
 
-[中文阅读](https://github.com/firezym/jupyterlab-notechat/blob/main/examples/README-使用说明-中文.ipynb) || [Introduction Video](https://github.com/user-attachments/assets/b4b8a840-e5e9-46ae-ac5f-4fd218e253b3)
+[中文阅读](https://github.com/firezym/jupyterlab-notechat/blob/main/examples/README-使用说明-中文.ipynb)
+
+[Introduction Video](https://github.com/user-attachments/assets/b4b8a840-e5e9-46ae-ac5f-4fd218e253b3)
 
 # Installation
 
