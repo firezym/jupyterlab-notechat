@@ -2,6 +2,10 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.1.2 2024 Nov 20
+
+- update readme
+
 ## 1.1.1 2024 Nov 20
 
 - add github repo link to help menu
