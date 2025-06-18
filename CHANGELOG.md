@@ -2,6 +2,11 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.2.0 2025 Jun 17
+
+- add support to model proxy
+- remove specific support to openai and moonshot
+
 ## 1.1.2 2024 Nov 20
 
 - update readme
