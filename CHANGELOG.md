@@ -2,7 +2,7 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
-## 1.2.3 2025 Jun 18
+## 1.2.3 - 1.2.4 2025 Jun 18
 
 - fix: github actions check links ignore some links
 
