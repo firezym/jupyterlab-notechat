@@ -2,6 +2,10 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.2.3 2025 Jun 18
+
+- fix: github actions check links ignore some links
+
 ## 1.2.2 2025 Jun 18
 
 - fix: lint
