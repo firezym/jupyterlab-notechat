@@ -2,6 +2,10 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.2.1 2025 Jun 18
+
+- fix: update github upload and download @actions from v3 to v4 for build.yml
+
 ## 1.2.0 2025 Jun 17
 
 - add support to model proxy
