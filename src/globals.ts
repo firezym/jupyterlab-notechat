@@ -9,7 +9,7 @@ export const SETTINGS = {
   user_name: '**user**',
   cell_param_name_refs: 'refs',
   ref_name: '_ref',
-  num_prev_cells: 20,
+  num_prev_cells: 80,
   data_types: ['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']
 }
 
@@ -17,18 +17,17 @@ export const SETTINGS = {
 // This parameter is mainly related to the AI model
 export const CHAT_PARAMS = {
   prompt: 'You are a helpful and warm-hearted assistant:) You have a good background knowledge in AI, STEM, finance, economics, statistics and related fields. Now you are helping the user to develop code, analyze data or write a report under a JupyterLab notebook environment (format: *.ipynb). If the user does not provide explicit questions, you can try to solve problems presented in the context and elaborate further on relevant topics.',
-  model: 'gpt-4o',
-  vision_model: 'gpt-4o',
+  model: 'gemini-2.5-pro-preview-06-05',
+  vision_model: 'gemini-2.5-pro-preview-06-05',
   use_vision: true,
-  max_input: 80000,
+  max_input: 160000,
   max_output: 0,
-  temperature: 0.6,
+  temperature: -1,
   response_format: 'text',
   timeout: 200,
   retries: 2,
   delay: 0.5,
-  openai_api_key: 'None',
-  moonshot_api_key: 'None'
+  llm_api_key: 'None',
 }
 
 // 动态加载说明配置文件
@@ -61,7 +60,7 @@ if (language.startsWith('zh')) {
   help_files = '【@files file_path/file_name】 可以进行跨多个文件全文引用，请避免包含空格等容易产生混淆的字符，`@`字符已经过特殊处理路径中可包含，目前支持的类型包括文本类txt/md/py/js/ts/sh/bat/json/xml/log/config/ini/yaml/yml、表格类csv/xlsx/xls、文档类pdf/docx/pptx/html/htm，其中出了ipynb文件可以包含图片，其他文件解析尚未包含图片 <br>'
   help_cell_span = '【@num_prev_cells 8】 在当前单元格对话中覆盖系统设定的向前引用范围至8 <br>'
   help_prompt = '【@prompt xyz】 用xyz替换系统默认的prompt提示词，请勿使用换行符 <br> 【@add_prompt xyz】 将xyz添加到系统默认的prompt后组合成为新的提示词 <br>'
-  help_model = '【@model o1-preview】 指定的LLM模型为gpt-4o-mini方便低价测试初步想法，请查看openai官网获取模型信息，默认@model gpt-4o，也支持@model moonshot-v1-32k （也支持8k、128k） <br> 【@use_vison false】 不使用图片视觉模型，默认使用true，可以在markdown单元格中直接粘贴截图或图片，但图片地址目前不支持 <br>【@max_input/@max_output 888】 设定input和output最大的token数量，这里超过max_input就会按照绝对id的原始顺序截断，但prompt和当前单元格优先保留，但图片tokens数量目前未支持计入 <br> 【@temperature 0.5】 0~1直接设定LLM模型生成的随机性 <br> 【@timeout 600】 设定模型最长响应时间 <br>'
+  help_model = '【@model o1】 指定具体的模型，默认模型为gemini-2.5-pro-preview-06-05 <br> 【@use_vison false】 不使用图片视觉模型，默认使用true，可以在markdown单元格中直接粘贴截图或图片，但图片地址目前不支持 <br>【@max_input/@max_output 888】 设定input和output最大的token数量，这里超过max_input就会按照绝对id的原始顺序截断，但prompt和当前单元格优先保留，但图片tokens数量目前未支持计入 <br> 【@temperature 0.5】 0~1直接设定LLM模型生成的随机性 <br> 【@timeout 600】 设定模型最长响应时间 <br>'
   help_nb_param = '【单个notebook级别参数设定】 如果要保证可复现性，可以在notebook右上角的Property Inspector（齿轮图标）-> ADVANCED TOOLS -> Notebook metadata 中，加入`"notechat":{"param":value}`来覆盖参数，比如设定notebook级别的prompt，注意这里的param不用加@，覆盖优先级为user>assistant>notebook>settings <br><br>'
   help_tabulate = '3. 表格识别：目前没有很好的处理html的工具，推荐使用pandas处理数据，并尽量用df.to_markdown()转化成为markdown表格格式，LLM能更好处理识别 <br><br>'
   help_run = '4. 支持从上到下顺序运行python code cell和LLM支持的user及assistant的对话流：方便长流程工作，比如自动化更新带数据带LLM总结分析的报告 <br><br>'
@@ -77,7 +76,7 @@ if (language.startsWith('zh')) {
   help_files = '【@files file_path/file_name】 Can perform full-text references across multiple files. Please avoid characters like spaces that can easily cause confusion. The `@` character has been specially processed and can be included in the path. Currently supported types include text types like txt/md/py/js/ts/sh/bat/json/xml/log/config/ini/yaml/yml, spreadsheet types like csv/xlsx/xls, document types like pdf/docx/pptx/html/htm. Among these, except for ipynb files which can include images, other file parsing does not yet include images. <br>'
   help_cell_span = "【@num_prev_cells 8】 In the current cell's conversation, override the system's default forward reference range to 8. <br>"
   help_prompt = "【@prompt xyz】 Use xyz to replace the system's default prompt; please do not use newline characters. <br> 【@add_prompt xyz】 Add xyz to the system's default prompt to form a new prompt. <br>"
-  help_model = '【@model o1-preview】 Specify the LLM model as gpt-4o-mini to conveniently test initial ideas at low cost. Please check the OpenAI official website for model information. The default is @model gpt-4o, and also supports @model moonshot-v1-32k (also supports 8k, 128k). <br> 【@use_vison false】 Do not use the image vision model; the default is true. You can directly paste screenshots or images into markdown cells, but image URLs are not currently supported. <br>【@max_input/@max_output 888】 Set the maximum token number of input and output. If it exceeds max_input here, it will be truncated according to the original order of absolute IDs, but the prompt and current cell are preferentially retained. Currently, the token count of images is not yet supported. <br> 【@temperature 0.5】 Set the randomness of the LLM model directly between 0~1. <br> 【@timeout 600】 Set the maximum response time of the model. <br>'
+  help_model = '【@model o1】choose model based on your needs, default to gemini-2.5-pro-preview-06-05 <br> 【@use_vision false】 Do not use the image vision model; the default is true. You can directly paste screenshots or images into markdown cells, but image URLs are not currently supported. <br>【@max_input/@max_output 888】 Set the maximum token number of input and output. If it exceeds max_input here, it will be truncated according to the original order of absolute IDs, but the prompt and current cell are preferentially retained. Currently, the token count of images is not yet supported. <br> 【@temperature 0.5】 Set the randomness of the LLM model directly between 0~1. <br> 【@timeout 600】 Set the maximum response time of the model. <br>'
   help_nb_param = '【Single notebook-level parameter settings】 To ensure reproducibility, you can add `"notechat":{"param":value}` in the Notebook metadata via the Property Inspector (gear icon) in the top right corner of the notebook under ADVANCED TOOLS to override parameters, such as setting the notebook-level prompt. Note that the param here does not need to add @. The override priority is user > assistant > notebook > settings. <br><br>'
   help_tabulate = '3. Table recognition: Currently, there are no good tools to handle HTML. It is recommended to use pandas to process data and try to convert it into markdown table format using df.to_markdown(), which LLM can better recognize and process. <br><br>'
   help_run = '4. Supports running python code cells and LLM-supported user and assistant dialogue flows in sequence from top to bottom: Convenient for long-process work, such as automatically updating reports with data and LLM summary analysis. <br><br>'

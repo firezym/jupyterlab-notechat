@@ -25,7 +25,7 @@ const BUTTON_MAP = new Map()
 // Plugin definition
 const plugin: JupyterFrontEndPlugin<void> = {
   id: SETTINGS.plugin_id,
-  description: 'Chat with an AI Assistant in the Notebook using OpenAI API',
+  description: 'Chat with an AI Assistant in the Notebook using LLM API',
   autoStart: true,
   requires: [ICommandPalette, INotebookTracker, ISettingRegistry],
   activate: (app: JupyterFrontEnd, palette: ICommandPalette, notebookTracker: INotebookTracker, settingRegistry: ISettingRegistry | null) => {
@@ -427,8 +427,7 @@ const chatCellData = async (panel: NotebookPanel | null, userSettings: ISettingR
   userSettingParams['max_input'] = (userSettings.get('max_input').composite as number) || CHAT_PARAMS.max_input
   userSettingParams['max_output'] = (userSettings.get('max_output').composite as number) || CHAT_PARAMS.max_output
   userSettingParams['temperature'] = (userSettings.get('temperature').composite as number) ?? CHAT_PARAMS.temperature
-  userSettingParams['openai_api_key'] = (userSettings.get('openai_api_key').composite as string) || CHAT_PARAMS.openai_api_key
-  userSettingParams['moonshot_api_key'] = (userSettings.get('moonshot_api_key').composite as string) || CHAT_PARAMS.moonshot_api_key
+  userSettingParams['llm_api_key'] = (userSettings.get('llm_api_key').composite as string) || CHAT_PARAMS.llm_api_key
 
   const notebookParams = panel?.model?.getMetadata('notechat') ?? {}
 

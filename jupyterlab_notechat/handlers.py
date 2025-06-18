@@ -59,52 +59,42 @@ class ChatHandler(APIHandler):
             user_name = data.get("user_name", "**user**")
             ref_name = data.get("ref_name", "_ref")
             prompt = (str(data.get("prompt", "You are a helpful and warm-hearted assistant:)")) + " " + data.get("add_prompt", "")).strip()
-            model = data.get("model", "gpt-4o")
-            vision_model = data.get("vision_model", "gpt-4o")
-            # 目前只支持openai的vision模型，如果使用moonshot则不使用vision模型
-            # Currently only supports OpenAI's vision model, if using moonshot, vision model is not used
-            use_vision = False if model.startswith("moonshot") else parse_param(data, "use_vision", bool, True)
-            max_input = parse_param(data, "max_input", int, 80000) # data.get("max_input", 80000)
+            model = data.get("model", "gemini-2.5-pro-preview-06-05")
+            vision_model = data.get("vision_model", "gemini-2.5-pro-preview-06-05")
+            use_vision = parse_param(data, "use_vision", bool, True)
+            max_input = parse_param(data, "max_input", int, 160000) # data.get("max_input", 160000)
             # 如果max_output小于等于0，则设置为None，表示不限制
             # If max_output is less or equal to 0, set to None, indicating no limit
             max_output = parse_param(data, "max_output", int, 0) # data.get("max_output", 0)
             max_output = None if max_output <= 0 else max_output
-            temperature = parse_param(data, "temperature", float, 0.6) # data.get("temperature", 0.6)
+            temperature = parse_param(data, "temperature", float, -1) # data.get("temperature", -1)
+            temperature = None if temperature < 0 else temperature # 如果temperature小于0，则设置为None，表示不使用temperature
             response_format = data.get("response_format", "text")
             timeout = parse_param(data, "timeout", int, 600) # timeout = data.get("timeout", 600)
             retries = parse_param(data, "retries", int, 3) # retries = data.get("retries", 3)
             delay = parse_param(data, "delay", int, 1) # delay = data.get("delay", 1)
-            api_key = data.get("openai_api_key", "None")
-            moonshot_api_key = data.get("moonshot_api_key", "None")
+            api_key = data.get("llm_api_key", "None")
+            base_url = data.get("base_url", "https://api.vveai.com")
             files = data.get("files", "").split(" ")
             
             # 从cell_json_arr，system prompt和files生成messages
             # Generate messages from cell_json_arr, system prompt, and files
             messages, has_image, total_input, input_tokens = await self.get_all_messages(cell_json_arr, active_cell_index, ai_name, user_name, ref_name, model, use_vision, max_input, prompt, files)
-
-            # 如果model是moonshot，调用moonshot_chat函数
-            # If model is moonshot, call moonshot_chat function
-            if model.startswith("moonshot"):
+            # 调用chat函数
+            if has_image and use_vision:
+                notechat_logger.info(f"### PARAMS ### model: {vision_model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
+                logging_messages = copy.deepcopy(messages)
+                for message in logging_messages:
+                    if isinstance(message["content"], list):
+                        for content in message["content"]:
+                            if content["type"] == "image_url":
+                                content["image_url"]["url"] = content["image_url"]["url"][0:30] + "..." + content["image_url"]["url"][-30:]
+                notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
+                response = await self.llm_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key, base_url)
+            else:
                 notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
                 notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
-                response = await self.moonshot_chat(messages, model, max_output, temperature, timeout, retries, delay, moonshot_api_key)
-            # 其他情况，调用openai_chat函数
-            # In other cases, call openai_chat function
-            else:
-                if has_image and use_vision:
-                    notechat_logger.info(f"### PARAMS ### model: {vision_model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
-                    logging_messages = copy.deepcopy(messages)
-                    for message in logging_messages:
-                        if isinstance(message["content"], list):
-                            for content in message["content"]:
-                                if content["type"] == "image_url":
-                                    content["image_url"]["url"] = content["image_url"]["url"][0:30] + "..." + content["image_url"]["url"][-30:]
-                    notechat_logger.info(f"### INPUT MESSAGES ### {logging_messages}")
-                    response = await self.openai_chat(messages, vision_model, max_output, None, temperature, timeout, retries, delay, api_key)
-                else:
-                    notechat_logger.info(f"### PARAMS ### model: {model} || use_vision: {use_vision} || has_image: {has_image} || max_input: {max_input} || total_input: {total_input} || input_tokens: {input_tokens} || max_output: {max_output}  || temperature: {temperature} || files: {files} ||")
-                    notechat_logger.info(f"### INPUT MESSAGES ### {messages}")
-                    response = await self.openai_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay, api_key)
+                response = await self.llm_chat(messages, model, max_output, response_format, temperature, timeout, retries, delay, api_key, base_url)
 
             notechat_logger.info(f"### OUTPUT RESPONSE ### {response}")
 
@@ -116,14 +106,14 @@ class ChatHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"error": "API请求处理出错: " + str(e)}))
 
-    async def openai_chat(self, messages, model="gpt-4o", max_tokens=None, response_format="text", temperature=0.6, timeout=300, retries=3, delay=1, api_key=None):
+    async def llm_chat(self, messages, model="gemini-2.5-pro-preview-06-05", max_tokens=None, response_format="text", temperature=0.6, timeout=300, retries=3, delay=1, api_key=None, base_url="https://api.vveai.com"):
         """
-        使用OpenAI API进行对话生成
-        Use OpenAI API for conversation generation
+        使用LLM API进行对话生成
+        Use LLM API for conversation generation
 
         Args:
             messages: 对话消息列表
-            model: 模型名称，gpt-4o，o1-preview
+            model: 模型名称，gemini-2.5-pro-preview-06-05，o1-preview
             max_tokens: 最大生成长度
             response_format: 响应格式，值为`text`、`json_object`、None
             temperature: 温度参数
@@ -131,19 +121,19 @@ class ChatHandler(APIHandler):
             retries: 重试次数
             delay: 重试延迟秒数
         """
-        # 首先检查环境变量中的 OPENAI_API_KEY
-        # First check the OPENAI_API_KEY in the environment variables
-        env_api_key = os.environ.get("OPENAI_API_KEY")
+        # 首先检查环境变量中的 LLM_API_KEY
+        # First check the LLM_API_KEY in the environment variables
+        env_api_key = os.environ.get("LLM_API_KEY")
         if env_api_key:
-            # 如果环境变量中的 OPENAI_API_KEY 存在且非空，优先使用环境变量中的值
-            # If the OPENAI_API_KEY in the environment variables exists and is not empty, use the value in the environment variables first
+            # 如果环境变量中的 LLM_API_KEY 存在且非空，优先使用环境变量中的值
+            # If the LLM_API_KEY in the environment variables exists and is not empty, use the value in the environment variables first
             api_key = env_api_key
         elif api_key is None or api_key.lower() == "none":
             # 如果传入的 api_key 不存在或其值为 "none"（不区分大小写）
             # If the passed api_key does not exist or its value is "none" (case insensitive)
-            return {"error": 'OpenAI API Key Missing ... 2 ways to setup api keys: 1. Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@openai_api_key` ; 2. set key to server environment variable `OPENAI_API_KEY`, linux `export OPENAI_API_KEY=your_key`, windows `$env:OPENAI_API_KEY = "your_key"`'}
-               
-        url = "https://api.openai.com/v1/chat/completions"
+            return {"error": 'LLM API Key Missing ... 2 ways to setup api keys: 1. Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@llm_api_key` ; 2. set key to server environment variable `LLM_API_KEY`, linux `export LLM_API_KEY=your_key`, windows `$env:LLM_API_KEY = "your_key"`'}
+
+        url = f"{base_url}/v1/chat/completions"
         headers = {
             "Content-Type": "application/json",
             "Authorization": "Bearer " + api_key,
@@ -151,28 +141,13 @@ class ChatHandler(APIHandler):
         data = {
             "model": model,
             "messages": messages,
-            "temperature": temperature,
         }
         if max_tokens is not None:
             data["max_tokens"] = max_tokens
+        if temperature is not None:
+            data["temperature"] = temperature
         if response_format is not None:
             data["response_format"] = {"type": response_format}
-        # 如果是o1模型，则有一些参数要特殊处理
-        # If it is an o1 model, some parameters need to be specially handled
-        if model.startswith("o1"):
-            # 检查message的第一个message的role是否是system，如果是则替换成user
-            # Check if the role of the first message in the message is system, if so, replace it with user
-            if len(messages)>0 and messages[0]["role"] == "system":
-                messages[0]["role"] = "user"
-            # 检查是否有max_tokens参数，如果有则替换成max_completion_tokens
-            # Check if there is a max_tokens parameter, if so, replace it with max_completion_tokens
-            if "max_tokens" in data:
-                data["max_completion_tokens"] = data["max_tokens"]
-                del data["max_tokens"]
-            # 检查temperature如果不是1，则强制设定为1
-            # Check if the temperature is not 1, if not, force it to 1
-            if temperature != 1.0:
-                data["temperature"] = 1.0
         # proxy = os.environ["http_proxy"]
         # async with httpx.AsyncClient(proxies={"http://": "http://"+proxy, "https://": "https://"+proxy}) as client:
         async with httpx.AsyncClient() as client:
@@ -180,7 +155,7 @@ class ChatHandler(APIHandler):
             while attempt < retries:
                 try:
                     response = await client.post(url, headers=headers, json=data, timeout=timeout)
-                    return response.json()
+                    return format_chat_output(response.json())
                 except Exception as e:
                     # logging.error(f"尝试 {attempt+1} / {retries}: 错误 - {str(e)}")
                     logging.error(f"Attempt {attempt+1} / {retries}: Error - {str(e)}")
@@ -192,62 +167,6 @@ class ChatHandler(APIHandler):
         # return {"error": f"API请求失败，已重试{retries}次，无法获取响应"}
         return {"error": f"API request failed, retried {retries} times, unable to get response"}
 
-    
-    async def moonshot_chat(self, messages, model="moonshot-v1-8k", max_tokens=None, temperature=0.3, timeout=300, retries=3, delay=1, api_key=None):
-        """
-        使用MOONSHOT API进行对话生成
-        Use MOONSHOT API for conversation generation
-
-        Args:
-            messages: 对话消息列表
-            model: 模型名称，moonshot-v1-8k，moonshot-v1-32k，moonshot-v1-128k
-            max_tokens: 最大生成长度
-            temperature: 温度参数
-            timeout: 超时秒数
-            retries: 重试次数
-            delay: 重试延迟秒数
-        """
-        # 首先检查环境变量中的 MOONSHOT_API_KEY
-        # First check the MOONSHOT_API_KEY in the environment variables
-        env_api_key = os.environ.get("MOONSHOT_API_KEY")
-        if env_api_key:
-            # 如果环境变量中的 OPENAI_API_KEY 存在且非空，优先使用环境变量中的值
-            # If the OPENAI_API_KEY in the environment variables exists and is not empty, use the value in the environment variables first
-            api_key = env_api_key
-        elif api_key is None or api_key.lower() == "none":
-            # 如果传入的 api_key 不存在或其值为 "none"（不区分大小写）
-            # If the passed api_key does not exist or its value is "none" (case insensitive)
-            return {"error": 'KIMI MOONSHOT API Key Missing ... 2 ways to setup api keys: 1. Top Menu Bar -> Settings -> Settings Editor -> NoteChat -> Param `@moonshot_api_key` ; 2. set key to server environment variable `MOONSHOT_API_KEY`, linux `export MOONSHOT_API_KEY=your_key`, windows `$env:MOONSHOT_API_KEY = "your_key"`'}
-        
-        url = "https://api.moonshot.cn/v1/chat/completions"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + api_key,
-        }
-        data = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-        }
-        if max_tokens is not None:
-            data["max_tokens"] = max_tokens
-        
-        async with httpx.AsyncClient() as client:
-            attempt = 0
-            while attempt < retries:
-                try:
-                    response = await client.post(url, headers=headers, json=data, timeout=timeout)
-                    return response.json()
-                except Exception as e:
-                    # logging.error(f"尝试 {attempt+1} / {retries}: 错误 - {str(e)}")
-                    logging.error(f"Attempt {attempt+1} / {retries}: Error - {str(e)}")
-                    await asyncio.sleep(delay)
-                    attempt += 1
-
-        # 在达到最大重试次数后，返回错误信息，而不是抛出异常
-        # After reaching the maximum number of retries, return an error message instead of throwing an exception
-        # return {"error": f"API请求失败，已重试{retries}次，无法获取响应"}
-        return {"error": f"API request failed, retried {retries} times, unable to get response"}
     
     # 将当前notebook指定的cell和指定的files生成消息
     # Generate messages from the specified cells and files of the current notebook
@@ -469,11 +388,14 @@ async def get_message_from_ipynb(file_path, ai_name, user_name, ref_name, model,
                         content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + data["image/png"] } })
                     elif use_vision and "image/jpeg" in data and len(data["image/jpeg"])>0:
                         content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpeg"] } })
-                    elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
-                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
+                    elif use_vision and "image/jpg" in data and len(data["image/jpg"])>0:
+                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpg"] } })
                     elif use_vision and "image/webp" in data and len(data["image/webp"])>0:
                         content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + data["image/webp"] } })
-                    # 目前openai vision不支持bmp格式
+                    # 目前google不支持gif格式
+                    # elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
+                    #     content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
+                    # 目前openai不支持bmp格式
                     # Currently openai vision does not support bmp format
         
         # 如果是raw单元格，目前暂时没有特殊处理
@@ -629,10 +551,13 @@ async def cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_n
                         content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + data["image/png"] } })
                     elif use_vision and "image/jpeg" in data and len(data["image/jpeg"])>0:
                         content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpeg"] } })
-                    elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
-                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
+                    elif use_vision and "image/jpg" in data and len(data["image/jpg"])>0:
+                        content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + data["image/jpg"] } })
                     elif use_vision and "image/webp" in data and len(data["image/webp"])>0:
                         content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + data["image/webp"] } })
+                    # 目前google不支持gif格式
+                    # elif use_vision and "image/gif" in data and len(data["image/gif"])>0:
+                    #     content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + data["image/gif"] } })
                     # 目前openai vision不支持bmp格式
                     # Currently openai vision does not support bmp format
         
@@ -672,10 +597,13 @@ async def cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_n
                                 content_image.append({"type": "image_url", "image_url": {"url": f"data:image/png;base64," + output["data"]["image/png"] } })
                             elif use_vision and "image/jpeg" in output["data"] and len(output["data"]["image/jpeg"])>0:
                                 content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + output["data"]["image/jpeg"] } })
-                            elif use_vision and "image/gif" in output["data"] and len(output["data"]["image/gif"])>0:
-                                content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + output["data"]["image/gif"] } })
+                            elif use_vision and "image/jpg" in output["data"] and len(output["data"]["image/jpg"])>0:
+                                content_image.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64," + output["data"]["image/jpg"] } })
                             elif use_vision and "image/webp" in output["data"] and len(output["data"]["image/webp"])>0:
                                 content_image.append({"type": "image_url", "image_url": {"url": f"data:image/webp;base64," + output["data"]["image/webp"] } })
+                            # 目前google不支持gif格式
+                            # elif use_vision and "image/gif" in output["data"] and len(output["data"]["image/gif"])>0:
+                            #     content_image.append({"type": "image_url", "image_url": {"url": f"data:image/gif;base64," + output["data"]["image/gif"] } })
 
         # 如果有图片，则标记为有图片
         # If there are images, mark as having images
@@ -721,6 +649,24 @@ async def cell_json_to_message(cell_json_arr, active_cell_index, ai_name, user_n
         tokens.append(active_cell_tokens)
 
     return messages, tokens, has_image
+
+def format_chat_output(result_json):
+    # result_json = copy.deepcopy(result_json)
+    try:
+        # google有时候会返回[{'type': 'text', 'text': 'xxx'}, {'type': 'text', 'text': 'xxx'}...]的content，需要特殊处理
+        if isinstance(result_json["choices"][0]["message"]["content"], list):
+            text_contents = []
+            for content in result_json["choices"][0]["message"]["content"]:
+                if content["type"] == "text":
+                    text_contents.append(content["text"])
+            # 将列表中的文本内容合并为一个字符串
+            result_json["choices"][0]["message"]["content"] = "\n".join(text_contents)
+    # 如果有异常，则不处理，直接返回原始结果
+    except:
+        notechat_logger.error("### ERROR ### format_chat_output error, content is not a list or has unexpected structure.")
+        pass
+    # 返回处理后的结果
+    return result_json
 
 # 将csv、excel文件转化为markdown表格
 # Convert csv, excel files to markdown tables

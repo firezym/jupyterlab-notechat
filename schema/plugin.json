@@ -93,18 +93,18 @@
       "type": "integer",
       "title": "@num_prev_cells : Number of Cells Before the Active Cell As Context",
       "description": "These cells' code and content before the active cell will be sent to the AI assistant as context if no other addtional parameters are specified.",
-      "default": 20
+      "default": 80
     },
     "model": {
       "type": "string",
       "title": "@model : Text Model",
-      "default": "gpt-4o"
+      "default": "gemini-2.5-pro-preview-06-05"
     },
     "vision_model": {
       "type": "string",
       "title": "@vision_model : Vision Model",
       "description": "This vision model will be used if there is picture in the context. Currently only png, jpeg, gif and webp formats are supported",
-      "default": "gpt-4o"
+      "default": "gemini-2.5-pro-preview-06-05"
     },
     "use_vision": {
       "type": "boolean",
@@ -116,7 +116,7 @@
       "type": "integer",
       "title": "@max_input : Number of Max Tokens for Input of One Chat",
       "description": "Extra messages exceeding this limit will be ignored. Prompt message and active cell content will be preserved by default.",
-      "default": 80000
+      "default": 160000
     },
     "max_output": {
       "type": "integer",
@@ -127,20 +127,20 @@
     "temperature": {
       "type": "number",
       "title": "@temperature : The Randomness of the Response",
-      "description": "What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
-      "default": 0.6
+      "description": "What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. Less than 0 means use model default.",
+      "default": -1
     },
-    "openai_api_key": {
+    "llm_api_key": {
       "type": "string",
-      "title": "@openai_api_key : OpenAI API Key",
-      "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `OPENAI_API_KEY`.",
+      "title": "@llm_api_key : LLM API Key",
+      "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `LLM_API_KEY`.",
       "default": "None"
     },
-    "moonshot_api_key": {
+    "base_url": {
       "type": "string",
-      "title": "@moonshot_api_key : Moonshot Kimi API Key",
-      "description": "If you don't want to expose your key explicitly, you can set it to server environment variable `MOONSHOT_API_KEY`.",
-      "default": "None"
+      "title": "@base_url : Base URL for LLM API",
+      "description": "Default is https://api.vveai.com because you can use multiple models via one endpoint. You can use https://api.openai.com for OpenAI official API.",
+      "default": "https://api.vveai.com"
     }
   },
   "additionalProperties": false,
