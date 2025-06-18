@@ -12,9 +12,9 @@ pip install jupyterlab-notechat
 
 # Define LLM secret keys in the extension settings or in the environment variables
 # Linux
-export OPENAI_API_KEY=your_key
+export LLM_API_KEY=your_key
 # Windows
-$env:OPENAI_API_KEY = "your_key"
+$env:LLM_API_KEY = "your_key"
 ```
 
 # Highlights
@@ -59,8 +59,8 @@ Add custom parameter assignments in the form of `@parameter xxx` on the first li
 - **`@num_prev_cells 8`** In the current cell's conversation, override the system's default forward reference range to 8.
 - **`@prompt xyz`** Use xyz to replace the system's default prompt; please do not use newline characters.
 - **`@add_prompt xyz`** Add xyz to the system's default prompt to form a new prompt.
-- **`@model o1-preview`** Specify the LLM model as gpt-4o-mini to conveniently test initial ideas at low cost. Please check the OpenAI official website for model information. The default is `@model gpt-4o`, and also supports @model moonshot-v1-32k (also supports 8k, 128k).
-- **`@use_vison false`** Do not use the image vision model; the default is true. You can directly paste screenshots or images into markdown cells, but image URLs are not currently supported.
+- **`@model o1`** choose model based on your needs, default to gemini-2.5-pro-preview-06-05.
+- **`@use_vision false`** Do not use the image vision model; the default is true. You can directly paste screenshots or images into markdown cells, but image URLs are not currently supported.
 - **`@max_input/@max_output 888`** Set the maximum token number of input and output. If it exceeds max_input here, it will be truncated according to the original order of absolute IDs, but the prompt and current cell are preferentially retained. Currently, the token count of images is not yet supported.
 - **`@temperature 0.5`** Set the randomness of the LLM model directly between 0~1.
 - **`@timeout 600`** Set the maximum response time of the model.
@@ -113,7 +113,7 @@ Currently, there are no good tools to handle HTML. It is recommended to use pand
 
 ## jupyterlab-notechat
 
-Chat with an AI Assistant in the Notebook using OpenAI API
+Chat with an AI Assistant in the Notebook using LLM API
 
 This extension is composed of a Python package named `jupyterlab-notechat`
 for the server extension and a NPM package named `jupyterlab-notechat`
