@@ -2,6 +2,10 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 1.2.2 2025 Jun 18
+
+- fix: lint
+
 ## 1.2.1 2025 Jun 18
 
 - fix: update github upload and download @actions from v3 to v4 for build.yml

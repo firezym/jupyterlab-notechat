@@ -3,7 +3,7 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v1.2.1'  # 当推送标签时触发（如 v1.0.0）
+      - 'v1.2.2'  # 当推送标签时触发（如 v1.0.0）
 
 jobs:
   publish:

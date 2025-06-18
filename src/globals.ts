@@ -27,7 +27,7 @@ export const CHAT_PARAMS = {
   timeout: 200,
   retries: 2,
   delay: 0.5,
-  llm_api_key: 'None',
+  llm_api_key: 'None'
 }
 
 // 动态加载说明配置文件
